@@ -2,6 +2,7 @@
   <Layout id="app" theme='dark'>
     <Header theme='dark'>
       <h1>Image 2 beercaps</h1>
+      <h2>🌆 ➡ 2️⃣ ➡ 🐻-🔘</h2>
     </Header>
     <Content theme='dark'>
       <Page />
@@ -44,7 +45,11 @@ body {
   text-align: center;
 
   header {
-    margin: 10px 0;
+    h1 {
+      font-size: 20px;
+      font-weight: 900;
+      margin: 10px 0;
+    }
   }
 }
 </style>
