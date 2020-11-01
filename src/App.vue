@@ -1,14 +1,15 @@
 <template>
   <Layout id="app" theme='dark'>
-    <Header theme='dark'>
+    <header>
       <h1>Image 2 beercaps</h1>
-      <h2>🌆 ➡ 2️⃣ ➡ 🐻-🔘</h2>
-    </Header>
+      <h2>🌆 ➡ 2️⃣ ➡ 🐻+🔘</h2>
+    </header>
     <Content theme='dark'>
       <Page />
     </Content>
     <Footer theme='dark'>
-      Footer
+      <span>🌆 ➡ 2️⃣ ➡ 🐻+🔘</span>
+      <span>copyrighted by me</span>
     </Footer>
   </Layout>
 </template>
@@ -17,14 +18,16 @@
 import { Component, Vue } from 'vue-property-decorator'
 import Page from './components/Page.vue'
 import { Layout } from 'ant-design-vue'
-const { Header, Content, Footer } = Layout
+const { Content, Footer } = Layout
 
 @Component({
   name: 'App',
 
   components: {
     Layout,
-    Page
+    Page,
+    Content,
+    Footer
   }
 })
 export default class App extends Vue {}
@@ -49,6 +52,14 @@ body {
       font-size: 20px;
       font-weight: 900;
       margin: 10px 0;
+    }
+  }
+
+  footer {
+    margin-top: 10px;
+
+    span {
+      padding: 0 10px;
     }
   }
 }

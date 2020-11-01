@@ -12,6 +12,7 @@ module.exports = {
     ecmaVersion: 2020
   },
   rules: {
+    '@typescript-eslint/ban-ts-ignore': 'off',
     '@typescript-eslint/no-empty-function': 'warn',
     'comma-dangle': 'warn',
     'no-console': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
