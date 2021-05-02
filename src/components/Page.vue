@@ -1,15 +1,17 @@
 <template>
   <div>
     <Row>
-      <Col class="justify-right" :xs="8">
-        <p>Original image</p>
+      <Col :xs="24">
+        <Button @click="newFile">📝 New</Button>
+        <Button @click="saveFile">💾 Save</Button>
+        <Button @click="triggerLoadFile">📂 Load</Button>
+        <input ref="loadFileUpload" type="file" @change="loadFile" style="display: none;">
       </Col>
-      <Col class="justify-center" :xs="8">
-        <p>Image to mimic</p>
-      </Col>
-      <Col class="justify-left" :xs="8">
-        <p>resulting image</p>
-      </Col>
+    </Row>
+    <Row>
+      <Col class="justify-right" :xs="8"><p>Original image</p></Col>
+      <Col class="justify-center" :xs="8"><p>Image to mimic</p></Col>
+      <Col class="justify-left" :xs="8"><p>Resulting image</p></Col>
     </Row>
     <Row>
       <Col :xs="8">
@@ -18,28 +20,21 @@
             name="file"
             :multiple="false"
             listType="picture-card"
+            ref="uploadDragger"
+            :fileList="[file].filter(a => a)"
             @change="handleUpload"
             :remove="handleRemove"
-            :before-upload="beforeUpload"
+            :before-upload="() => false"
           >
-            <p
-              v-if="fileList.length == 0"
-              class="ant-upload-drag-icon"
-            >
-              <Icon type="inbox" />
-            </p>
-            <p
-              v-if="fileList.length == 0"
-              class="ant-upload-text"
-            >
-              Click or drag file to this area to upload
-            </p>
+            <p v-if="file" class="ant-upload-drag-icon"><Icon type="inbox" /></p>
+            <p v-if="file" class="ant-upload-text">Click or drag file to this area to upload</p>
           </Dragger>
         </div>
       </Col>
       <Col :xs="8">
         <div class="mimic-image">
           <canvas
+            ref="canvasImage"
             :style="`width: 300px; height: ${(desiredRatio/1)*300}px`"
             :width="resultWidth"
             :height="resultHeight"
@@ -61,25 +56,34 @@
         addonBefore="Your desired ratio"
         :value="desiredRatio"
         suffix=" :1"
+        min="0.1"
         @change="(event) => desiredRatio = Number(event.target.value)"
       />
       <Input
         type="number"
         addonBefore="Height"
         readOnly
+        step="1"
         :value="resultHeight"
       />
       <Input
         type="number"
         addonBefore="Width"
         readOnly
+        step="1"
         :value="resultWidth"
       />
       <Input
         type="number"
-        addonBefore="Number of caps"
+        addonBefore="Number of caps available"
         readOnly
         :value="numberOfCaps"
+      />
+      <Input
+        type="number"
+        addonBefore="Number of caps used"
+        readOnly
+        :value="resultHeight * resultWidth"
       />
     </div>
     <div>
@@ -102,19 +106,24 @@
           dataIndex: 'name',
           key: 'name',
           ellipsis: true,
+          scopedSlots: { customRender: 'name' },
         }, {
           title: 'Amount',
           dataIndex: 'amount',
           key: 'amount',
           scopedSlots: { customRender: 'amount' },
+        }, {
+          title: 'Amount Used',
+          dataIndex: 'amountUsed',
+          key: 'amountUsed',
+          scopedSlots: { customRender: 'amountUsed' },
+        }, {
+          title: '',
+          scopedSlots: { customRender: 'remove' },
         }]"
       >
         <template slot="image" slot-scope="record">
-          <img
-            class="table-image"
-            :src="record.image"
-            :ref="`image-${record.image}`"
-          >
+          <img class="table-image" :src="record.image">
         </template>
         <template slot="color" slot-scope="color">
           <Icon
@@ -123,139 +132,169 @@
             :style="`color: rgb(${color.r}, ${color.g}, ${color.b}); font-size: 70px;`"
           />
         </template>
+        <template slot="name" slot-scope="_, record">
+          <Input
+            :value="record.name"
+            @change="(event) => record.name = event.target.value"
+          />
+        </template>
+        <template slot="amount" slot-scope="_, record">
+          <Input
+            type="number"
+            step="1"
+            min="0"
+            :value="record.amount"
+            @change="(event) => record.amount = Number(event.target.value)"
+          />
+        </template>
+        <template slot="amountUsed" slot-scope="_, record">
+          <Input
+            type="number"
+            readOnly
+            :value="record.amountUsed || 0"
+          />
+        </template>
+        <template slot="remove" slot-scope="_, record">
+          <Button type="link" @click="() => removeBeercap(record)">❌</Button>
+        </template>
       </Table>
+      <Button
+        class="add-new-beercap"
+        type="primary"
+        @click="addBeercap"
+      >New 🐻+🔘</Button>
     </div>
   </div>
 </template>
 
 <script>
+/* eslint-disable vue/no-async-in-computed-properties */
+
 import Vue from 'vue'
-import { Row, Input, Col, Upload, Table, Icon } from 'ant-design-vue'
+import {
+  Button,
+  Col,
+  Icon,
+  Input,
+  Row,
+  Table,
+  Upload
+} from 'ant-design-vue'
 import { getAverageColor } from '@/utils'
-import hertogImage from '@/assets/Hertog-Jan-Pilsener.jpg'
-import hertogEnkelImage from '@/assets/hertigjanenkel.jpg'
-import amstelPilsImage from '@/assets/amstel-pils.jpg'
-import heinekenPilsImage from '@/assets/heineken-pils.jpg'
-import grolschPilsImage from '@/assets/grolsch-kroonkurk.jpg'
-import leChouffeImage from '@/assets/lechouffe.jpg'
-import brewdogBlueImage from '@/assets/brewdog-blauw.jpg'
-import kwakImage from '@/assets/kwak.jpg'
-import blackWhiteImage from '@/assets/Untitled.png'
+import defaultSaveFile from '@/assets/defaultSaveFile.json'
 const { Dragger } = Upload
 
 export default Vue.extend({
   name: 'Page',
 
   components: {
-    Icon,
+    Button,
+    Col,
     Dragger,
-    Table,
+    Icon,
     Input,
     Row,
-    Col
+    Table
   },
 
   data: function () {
     return {
-      getAverageColor,
-      fileList: [],
+      defaultSaveFile,
+      file: defaultSaveFile.file,
       uploading: false,
-      desiredRatio: 1,
-      caps: [{
-        key: Math.random(),
-        image: hertogImage,
-        name: 'Hertig Jan - Pils',
-        amount: 30,
-        color: { r: 0, g: 0, b: 0 }
-      }, {
-        key: Math.random(),
-        image: amstelPilsImage,
-        name: 'Amstel - Pils',
-        amount: 30,
-        color: { r: 0, g: 0, b: 0 }
-      }, {
-        key: Math.random(),
-        image: heinekenPilsImage,
-        name: 'Heineken - Pils',
-        amount: 30,
-        color: { r: 0, g: 0, b: 0 }
-      }, {
-        key: Math.random(),
-        image: grolschPilsImage,
-        name: 'Grolsch - Pils',
-        amount: 30,
-        color: { r: 0, g: 0, b: 0 }
-      }, {
-        key: Math.random(),
-        image: kwakImage,
-        name: 'Kwak - Pils',
-        amount: 30,
-        color: { r: 0, g: 0, b: 0 }
-      }, {
-        key: Math.random(),
-        image: hertogEnkelImage,
-        name: 'Hertog Jan - Enkel',
-        amount: 30,
-        color: { r: 0, g: 0, b: 0 }
-      }, {
-        key: Math.random(),
-        image: leChouffeImage,
-        name: 'Le Chouffe',
-        amount: 30,
-        color: { r: 0, g: 0, b: 0 }
-      }, {
-        key: Math.random(),
-        image: brewdogBlueImage,
-        name: 'Brewdog blue',
-        amount: 30,
-        color: { r: 0, g: 0, b: 0 }
-      }, {
-        key: Math.random(),
-        image: blackWhiteImage,
-        name: 'black and white',
-        amount: 30,
-        color: { r: 0, g: 0, b: 0 }
-      }
-      ]
+      desiredRatio: defaultSaveFile.desiredRatio,
+      caps: defaultSaveFile.caps
     }
   },
 
   computed: {
     numberOfCaps: function () {
-      // return 200
+      setTimeout(this.updateMimicImage, 100)
       return this.caps.reduce((amount, item) => amount + item.amount, 0)
     },
     resultHeight: function () {
+      setTimeout(this.updateMimicImage, 100)
       return Math.floor(Math.pow(this.numberOfCaps / this.desiredRatio, 1 / 2) * this.desiredRatio)
     },
     resultWidth: function () {
+      setTimeout(this.updateMimicImage, 100)
       return Math.floor(Math.pow(this.numberOfCaps / this.desiredRatio, 1 / 2))
     }
   },
 
   async mounted () {
-    await this.updateCaps()
-    this.$forceUpdate()
+    await this.updateCapColors()
+    console.log(this)
   },
 
   methods: {
-    async updateCaps () {
+    // Resolve file new/save/load
+    newFile () {
+      this.caps = []
+      this.file = undefined
+      this.desiredRatio = 1
+    },
+    saveFile () {
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(new Blob([JSON.stringify({ caps: this.caps, file: this.file, desiredRatio: this.desiredRatio })], { type: 'application/json' }))
+      a.download = 'image2beercaps-save-file.json'
+      a.click()
+      URL.revokeObjectURL(a.href)
+    },
+    triggerLoadFile () {
+      this.$refs.loadFileUpload.click()
+    },
+    loadFile (event) {
+      const reader = new FileReader()
+      reader.onload = ({ target }) => {
+        const result = JSON.parse(target.result)
+        this.caps = result.caps
+        this.file = result.file
+        this.desiredRatio = result.desiredRatio
+      }
+      reader.readAsText(event.target.files[0])
+    },
+
+    // Handle image
+    handleRemove () {
+      this.file = undefined
+    },
+    handleUpload ({ fileList }) {
+      this.file = fileList[0]
+      setTimeout(this.updateMimicImage, 100)
+      return undefined
+    },
+    async updateMimicImage () {
+      if (!this.file) return
+      const baseImage = new Image()
+      baseImage.src = this.file.thumbUrl
+      baseImage.onload = () => {
+        const context = this.$refs.canvasImage.getContext('2d')
+        context.imageSmoothingEnabled = false
+        context.drawImage(baseImage, 0, 0, this.resultWidth, this.resultHeight)
+      }
+    },
+
+    // Handle caps
+    async updateCapColors () {
       await this.caps.map(async (cap, i) => {
         this.caps[i].color = await getAverageColor(cap.image)
       })
     },
-    handleRemove (file) {
-      const index = this.fileList.indexOf(file)
-      const newFileList = this.fileList.slice()
-      newFileList.splice(index, 1)
-      this.fileList = newFileList
+    removeBeercap (cap) {
+      const index = this.caps.indexOf(cap)
+      const newCapList = this.caps.slice()
+      newCapList.splice(index, 1)
+      this.caps = newCapList
     },
-    beforeUpload (file) {
-      this.fileList = [...this.fileList, file]
-      return false
-    },
-    handleUpload () {
-      return undefined
+    addBeercap () {
+      this.caps.push({
+        key: Math.random(),
+        image: '',
+        name: '',
+        amount: 0,
+        color: { r: 255, g: 255, b: 255 }
+      })
     }
   }
 })
@@ -271,6 +310,10 @@ export default Vue.extend({
 }
 .justify-left {
   text-align: left;
+}
+
+button {
+  margin: 10px;
 }
 
 .ant-upload-drag {
@@ -310,6 +353,10 @@ div.ant-upload-list-picture-card-container .ant-upload-list-item-list-type-pictu
   opacity: 1;
 }
 
+.mimic-image {
+  image-rendering: pixelated;
+}
+
 .mimic-image,
 .resulting-image {
   canvas {
@@ -329,8 +376,12 @@ div.ant-upload-list-picture-card-container .ant-upload-list-item-list-type-pictu
   margin: 20px 0;
 
   &> span {
-    width: 210px;
+    width: max-content;
     margin: 0 5px;
+
+    &:first-child {
+      width: 210px;
+    }
   }
 }
 
@@ -345,5 +396,12 @@ div.ant-upload-list-picture-card-container .ant-upload-list-item-list-type-pictu
     height: 100px;
     border-radius: 50px;
   }
+}
+
+.add-new-beercap {
+  width: -webkit-fill-available;
+  margin: 20p;
+  font-size: xxx-large;
+  height: auto;
 }
 </style>

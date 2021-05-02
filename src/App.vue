@@ -9,7 +9,7 @@
     </Content>
     <Footer theme='dark'>
       <span>🌆 ➡ 2️⃣ ➡ 🐻+🔘</span>
-      <span>copyrighted by me</span>
+      <span>copyrighted by me 😁</span>
     </Footer>
   </Layout>
 </template>
