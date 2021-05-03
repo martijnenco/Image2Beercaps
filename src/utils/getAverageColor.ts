@@ -17,7 +17,7 @@ function isXYinCircle (x: number, y: number, cx: number, cy: number): boolean {
 }
 
 export default async (src: string, options = {
-  blockSize: 10,
+  blockSize: 1,
   defaultRBG: { r: 0, g: 0, b: 0 }
 } as Options) => {
   const blockSize = options.blockSize // only visit every 5 pixels

@@ -122,8 +122,17 @@
           scopedSlots: { customRender: 'remove' },
         }]"
       >
-        <template slot="image" slot-scope="record">
-          <img class="table-image" :src="record.image">
+        <template slot="image" slot-scope="_, record">
+          <ImageUpload
+            langType="en"
+            @crop-success="(imgDataUrl) => onCropSuccess(record, imgDataUrl)"
+            v-model="record.open"
+            :width="50"
+            :height="50"
+            noSquare="true"
+            noRotate="true"
+            img-format="png"></ImageUpload>
+          <img class="table-image" :src="record.image" @click="() => record.open = true">
         </template>
         <template slot="color" slot-scope="color">
           <Icon
@@ -171,6 +180,7 @@
 /* eslint-disable vue/no-async-in-computed-properties */
 
 import Vue from 'vue'
+import ImageUpload from 'vue-image-crop-upload/upload-2.vue'
 import {
   Button,
   Col,
@@ -192,6 +202,7 @@ export default Vue.extend({
     Col,
     Dragger,
     Icon,
+    ImageUpload,
     Input,
     Row,
     Table
@@ -201,9 +212,9 @@ export default Vue.extend({
     return {
       defaultSaveFile,
       file: defaultSaveFile.file,
-      uploading: false,
+      showUploadField: '',
       desiredRatio: defaultSaveFile.desiredRatio,
-      caps: defaultSaveFile.caps
+      caps: defaultSaveFile.caps.map((cap) => ({ ...cap, open: false }))
     }
   },
 
@@ -276,9 +287,16 @@ export default Vue.extend({
     },
 
     // Handle caps
+    toggleUploadImage (record) {
+      this.showUploadField = record.id
+    },
+    async onCropSuccess (record, imgDataUrl) {
+      record.image = imgDataUrl
+      record.color = await getAverageColor(imgDataUrl)
+    },
     async updateCapColors () {
       await this.caps.map(async (cap, i) => {
-        this.caps[i].color = await getAverageColor(cap.image)
+        cap.color = await getAverageColor(cap.image)
       })
     },
     removeBeercap (cap) {
@@ -290,6 +308,7 @@ export default Vue.extend({
     addBeercap () {
       this.caps.push({
         key: Math.random(),
+        open: true,
         image: '',
         name: '',
         amount: 0,
@@ -392,6 +411,7 @@ div.ant-upload-list-picture-card-container .ant-upload-list-item-list-type-pictu
   }
 
   .table-image {
+    cursor: pointer;
     width: 100px;
     height: 100px;
     border-radius: 50px;
