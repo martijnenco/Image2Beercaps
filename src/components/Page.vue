@@ -16,19 +16,19 @@
     <Row>
       <Col :xs="8">
         <div>
-          <Dragger
-            name="file"
-            :multiple="false"
-            listType="picture-card"
-            ref="uploadDragger"
-            :fileList="[file].filter(a => a)"
-            @change="handleUpload"
-            :remove="handleRemove"
-            :before-upload="() => false"
-          >
-            <p v-if="file" class="ant-upload-drag-icon"><Icon type="inbox" /></p>
-            <p v-if="file" class="ant-upload-text">Click or drag file to this area to upload</p>
-          </Dragger>
+          <ImageUpload
+            langType="en"
+            @crop-success="imgDataUrl => handleUpload(imgDataUrl)"
+            v-model="openUploadImageModal"
+            :width="300"
+            :height="300"
+            :noCircle="true"
+            :noRotate="true"
+            img-format="png"></ImageUpload>
+          <img class="upload-image" v-if="uploadImage" :src="uploadImage" @click="() => openUploadImageModal = true" />
+          <div v-else class="upload-image"  @click="() => openUploadImageModal = true">
+            <span>Click here to upload an image</span>
+          </div>
         </div>
       </Col>
       <Col :xs="8">
@@ -129,8 +129,8 @@
             v-model="record.open"
             :width="50"
             :height="50"
-            noSquare="true"
-            noRotate="true"
+            :noSquare="true"
+            :noRotate="true"
             img-format="png"></ImageUpload>
           <img class="table-image" :src="record.image" @click="() => record.open = true">
         </template>
@@ -187,12 +187,10 @@ import {
   Icon,
   Input,
   Row,
-  Table,
-  Upload
+  Table
 } from 'ant-design-vue'
 import { getAverageColor } from '@/utils'
 import defaultSaveFile from '@/assets/defaultSaveFile.json'
-const { Dragger } = Upload
 
 export default Vue.extend({
   name: 'Page',
@@ -200,7 +198,6 @@ export default Vue.extend({
   components: {
     Button,
     Col,
-    Dragger,
     Icon,
     ImageUpload,
     Input,
@@ -211,8 +208,8 @@ export default Vue.extend({
   data: function () {
     return {
       defaultSaveFile,
-      file: defaultSaveFile.file,
-      showUploadField: '',
+      uploadImage: defaultSaveFile.uploadImage,
+      openUploadImageModal: false,
       desiredRatio: defaultSaveFile.desiredRatio,
       caps: defaultSaveFile.caps.map((cap) => ({ ...cap, open: false }))
     }
@@ -242,12 +239,12 @@ export default Vue.extend({
     // Resolve file new/save/load
     newFile () {
       this.caps = []
-      this.file = undefined
+      this.uploadImage = undefined
       this.desiredRatio = 1
     },
     saveFile () {
       const a = document.createElement('a')
-      a.href = URL.createObjectURL(new Blob([JSON.stringify({ caps: this.caps, file: this.file, desiredRatio: this.desiredRatio })], { type: 'application/json' }))
+      a.href = URL.createObjectURL(new Blob([JSON.stringify({ caps: this.caps, uploadImage: this.uploadImage, desiredRatio: this.desiredRatio })], { type: 'application/json' }))
       a.download = 'image2beercaps-save-file.json'
       a.click()
       URL.revokeObjectURL(a.href)
@@ -260,25 +257,21 @@ export default Vue.extend({
       reader.onload = ({ target }) => {
         const result = JSON.parse(target.result)
         this.caps = result.caps
-        this.file = result.file
+        this.uploadImage = result.uploadImage
         this.desiredRatio = result.desiredRatio
       }
       reader.readAsText(event.target.files[0])
     },
 
     // Handle image
-    handleRemove () {
-      this.file = undefined
-    },
-    handleUpload ({ fileList }) {
-      this.file = fileList[0]
+    handleUpload (imgDataUrl) {
+      this.uploadImage = imgDataUrl
       setTimeout(this.updateMimicImage, 100)
-      return undefined
     },
     async updateMimicImage () {
-      if (!this.file) return
+      if (!this.uploadImage) return
       const baseImage = new Image()
-      baseImage.src = this.file.thumbUrl
+      baseImage.src = this.uploadImage
       baseImage.onload = () => {
         const context = this.$refs.canvasImage.getContext('2d')
         context.imageSmoothingEnabled = false
@@ -287,15 +280,12 @@ export default Vue.extend({
     },
 
     // Handle caps
-    toggleUploadImage (record) {
-      this.showUploadField = record.id
-    },
     async onCropSuccess (record, imgDataUrl) {
       record.image = imgDataUrl
       record.color = await getAverageColor(imgDataUrl)
     },
     async updateCapColors () {
-      await this.caps.map(async (cap, i) => {
+      await this.caps.map(async (cap) => {
         cap.color = await getAverageColor(cap.image)
       })
     },
@@ -342,34 +332,22 @@ button {
   width: 300px !important;
   height: 300px !important;
   text-align: center;
-  background: #fafafa;
+  padding: 5px;
+}
+
+.upload-image {
   border: 1px dashed #d9d9d9;
   border-radius: 4px;
-  padding: 5px;
-  cursor: pointer;
   transition: border-color .3s;
-
-}
-
-.ant-upload-drag {
+  cursor: pointer;
+  background: #fafafa;
+  width: 300px;
+  height: 300px;
   margin: 0;
-}
-.ant-upload-list-picture .ant-upload-list-item-thumbnail, .ant-upload-list-picture-card .ant-upload-list-item-thumbnail {
-  opacity: 1;
-}
-.ant-upload-list.ant-upload-list-picture-card span.ant-upload-list-item-actions a {
-  display: none;
-}
-
-div.ant-upload-list-picture-card-container .ant-upload-list-item-list-type-picture-card {
-  position: absolute;
-  top: 0 !important;
-  right: 0 !important;
-  width: 300px !important;
-  height: 300px !important;
-  margin: 0 !important;
   padding: 0;
-  opacity: 1;
+  position: absolute;
+  top: 0;
+  right: 0;
 }
 
 .mimic-image {
