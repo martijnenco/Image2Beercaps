@@ -44,8 +44,10 @@
       <Col :xs="8">
         <div class="resulting-image">
           <canvas
-            width="300px"
-            :height="`${(desiredRatio/1)*300}px`"
+            ref="resultingImage"
+            :style="`width: 300px; height: ${(desiredRatio/1)*300}px`"
+            :width="resultWidth * 10"
+            :height="resultHeight* 10"
           />
         </div>
       </Col>
@@ -189,7 +191,7 @@ import {
   Row,
   Table
 } from 'ant-design-vue'
-import { getAverageColor } from '@/utils'
+import { getAverageColor, drawResultImage } from '@/utils'
 import defaultSaveFile from '@/assets/defaultSaveFile.json'
 
 export default Vue.extend({
@@ -276,7 +278,14 @@ export default Vue.extend({
         const context = this.$refs.canvasImage.getContext('2d')
         context.imageSmoothingEnabled = false
         context.drawImage(baseImage, 0, 0, this.resultWidth, this.resultHeight)
+        this.updateResultingImage()
       }
+    },
+    async updateResultingImage() {
+      const context = this.$refs.resultingImage.getContext('2d')
+      context.imageSmoothingEnabled = false
+      console.log(this.$refs.canvasImage)
+      drawResultImage(this.$refs.canvasImage, this.$refs.resultingImage, this.caps)
     },
 
     // Handle caps
@@ -323,16 +332,6 @@ export default Vue.extend({
 
 button {
   margin: 10px;
-}
-
-.ant-upload-drag {
-  margin-right: 10px;
-  position: relative;
-  float: right;
-  width: 300px !important;
-  height: 300px !important;
-  text-align: center;
-  padding: 5px;
 }
 
 .upload-image {

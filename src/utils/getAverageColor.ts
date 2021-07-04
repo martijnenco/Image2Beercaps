@@ -1,8 +1,4 @@
-export interface RGB {
-  r: number;
-  g: number;
-  b: number;
-}
+import { RGB } from '../types/RGB'
 
 interface Options {
   blockSize: number;
