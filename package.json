@@ -1,0 +1,11 @@
+{
+  "name": "image2beercaps",
+  "version": "1.0.0",
+  "description": "Convert images to beercap mosaic instructions",
+  "scripts": {
+    "dev": "npx serve ."
+  },
+  "keywords": ["beercap", "mosaic", "image-processing"],
+  "license": "MIT"
+}
+

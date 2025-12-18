@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beercap Mosaic Generator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍺</text></svg>">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <h1 class="app-title">Beercap Mosaic</h1>
+            <p class="app-subtitle">Transform images into beercap art instructions</p>
+        </header>
+
+        <!-- Main Content Grid -->
+        <main class="main-grid">
+            <!-- Beercap Library Panel -->
+            <section class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">Beercap Library</h2>
+                    <div class="library-actions">
+                        <span class="stats-badge">
+                            Total: <strong id="total-caps">0</strong> caps
+                        </span>
+                        <button id="add-beercap-btn" class="btn btn-primary btn-sm">+ Add</button>
+                        <button id="clear-library-btn" class="btn btn-danger btn-sm">Clear</button>
+                    </div>
+                </div>
+                <div class="panel-content">
+                    <div id="beercap-list" class="beercap-list">
+                        <div class="empty-library">
+                            <p>No beercaps added yet.</p>
+                            <p>Click "Add Beercap" to start building your library.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Target Image Panel -->
+            <section class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">Target Image</h2>
+                </div>
+                <div class="panel-content">
+                    <div id="target-upload-area" class="upload-area">
+                        <input type="file" id="target-image-input" accept="image/*">
+                        <div id="target-image-placeholder" class="upload-placeholder">
+                            <div class="upload-icon">🖼️</div>
+                            <p class="upload-text">Click or drag image here</p>
+                            <p class="upload-hint">Supports JPG, PNG, GIF, WebP</p>
+                        </div>
+                        <img id="target-image-preview" class="target-preview hidden" alt="Target image preview">
+                    </div>
+                    
+                    <div id="grid-info" class="grid-info">
+                        Upload an image and add beercaps to see grid dimensions
+                    </div>
+                    
+                    <div class="generate-section">
+                        <button id="generate-btn" class="btn btn-primary btn-generate" disabled>
+                            Generate Mosaic
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Output Section -->
+        <section id="output-section" class="output-section hidden">
+            <div class="output-header">
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="visual">Visual Preview</button>
+                    <button class="tab-btn" data-tab="reference">Reference Grid</button>
+                    <button class="tab-btn" data-tab="stats">Statistics</button>
+                </div>
+                <div class="export-buttons">
+                    <button id="download-png-btn" class="btn btn-secondary btn-sm" disabled>
+                        📥 Download PNG
+                    </button>
+                    <button id="download-csv-btn" class="btn btn-secondary btn-sm" disabled>
+                        📊 Export CSV
+                    </button>
+                </div>
+            </div>
+            
+            <div class="tab-content">
+                <!-- Visual Preview Tab -->
+                <div id="visual-panel" class="tab-panel active">
+                    <div class="canvas-container">
+                        <canvas id="visual-canvas"></canvas>
+                    </div>
+                </div>
+
+                <!-- Reference Grid Tab -->
+                <div id="reference-panel" class="tab-panel">
+                    <div class="reference-container">
+                        <div id="reference-grid"></div>
+                    </div>
+                    <div class="legend-section">
+                        <h4 class="legend-title">Legend</h4>
+                        <div id="legend-container" class="legend-container"></div>
+                    </div>
+                </div>
+
+                <!-- Stats Tab -->
+                <div id="stats-panel" class="tab-panel">
+                    <div id="stats-content"></div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Add Beercap Modal -->
+    <div id="beercap-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title" class="modal-title">Add Beercap</h3>
+                <button id="modal-close" class="modal-close">&times;</button>
+            </div>
+            <form id="beercap-form">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="beercap-name" class="form-label">Name</label>
+                        <input type="text" id="beercap-name" class="form-input" 
+                               placeholder="e.g., Heineken, Corona..." required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="beercap-quantity" class="form-label">Quantity Available</label>
+                        <input type="number" id="beercap-quantity" class="form-input" 
+                               min="0" value="1" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <span class="form-label">Beercap Image</span>
+                        <div class="file-input-wrapper">
+                            <input type="file" id="beercap-image" accept="image/*" required>
+                            <label for="beercap-image" class="file-input-label">
+                                📷 Click to upload beercap image
+                            </label>
+                        </div>
+                        <div class="beercap-preview-container">
+                            <div id="beercap-preview"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" id="modal-cancel" class="btn btn-secondary">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Beercap</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>
+
