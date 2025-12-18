@@ -6,6 +6,6 @@
     "dev": "npx serve ."
   },
   "keywords": ["beercap", "mosaic", "image-processing"],
-  "license": "MIT"
+  "license": "No commercial use"
 }
 

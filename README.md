@@ -155,7 +155,9 @@ For mosaics under 500 caps, the Hungarian algorithm completes in under 1 second 
 
 ## License
 
-MIT License — feel free to use, modify, and share!
+**Non-Commercial Use Only**
+
+This project is free to use, modify for personal and non-commercial purposes. Commercial use is not permitted without explicit permission from the author.
 
 ---
 
