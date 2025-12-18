@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="capGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f0883e"/>
+      <stop offset="100%" style="stop-color:#db6d28"/>
+    </linearGradient>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#161b22"/>
+      <stop offset="100%" style="stop-color:#0d1117"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="200" height="200" rx="20" fill="url(#bgGradient)"/>
+  
+  <!-- Grid pattern representing mosaic -->
+  <g opacity="0.3">
+    <rect x="25" y="25" width="30" height="30" rx="15" fill="#e5d654"/>
+    <rect x="60" y="25" width="30" height="30" rx="15" fill="#78b432"/>
+    <rect x="95" y="25" width="30" height="30" rx="15" fill="#c41e3a"/>
+    <rect x="130" y="25" width="30" height="30" rx="15" fill="#1e90ff"/>
+    
+    <rect x="25" y="60" width="30" height="30" rx="15" fill="#ff6b35"/>
+    <rect x="130" y="60" width="30" height="30" rx="15" fill="#9b59b6"/>
+    
+    <rect x="25" y="95" width="30" height="30" rx="15" fill="#3498db"/>
+    <rect x="130" y="95" width="30" height="30" rx="15" fill="#e74c3c"/>
+    
+    <rect x="25" y="130" width="30" height="30" rx="15" fill="#2ecc71"/>
+    <rect x="60" y="130" width="30" height="30" rx="15" fill="#f39c12"/>
+    <rect x="95" y="130" width="30" height="30" rx="15" fill="#1abc9c"/>
+    <rect x="130" y="130" width="30" height="30" rx="15" fill="#e91e63"/>
+  </g>
+  
+  <!-- Main beercap icon -->
+  <circle cx="100" cy="95" r="45" fill="url(#capGradient)" stroke="#ffa657" stroke-width="3"/>
+  
+  <!-- Cap ridges -->
+  <circle cx="100" cy="95" r="38" fill="none" stroke="#0d1117" stroke-width="2" opacity="0.3"/>
+  <circle cx="100" cy="95" r="30" fill="none" stroke="#0d1117" stroke-width="1" opacity="0.2"/>
+  
+  <!-- Beer foam/bubbles -->
+  <circle cx="85" cy="85" r="4" fill="#fff" opacity="0.6"/>
+  <circle cx="108" cy="80" r="3" fill="#fff" opacity="0.5"/>
+  <circle cx="95" cy="100" r="2.5" fill="#fff" opacity="0.4"/>
+  <circle cx="115" cy="95" r="2" fill="#fff" opacity="0.3"/>
+  
+  <!-- Image icon overlay -->
+  <g transform="translate(100, 95)" opacity="0.9">
+    <rect x="-15" y="-12" width="30" height="24" rx="3" fill="#0d1117" opacity="0.7"/>
+    <circle cx="-6" cy="-4" r="4" fill="#ffa657"/>
+    <path d="M-12 8 L-4 0 L4 6 L12 -2 L12 8 Z" fill="#3fb950"/>
+  </g>
+  
+  <!-- Arrow indicating transformation -->
+  <path d="M100 150 L100 165 M93 158 L100 165 L107 158" stroke="url(#capGradient)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Mini mosaic output -->
+  <g transform="translate(70, 170)">
+    <rect x="0" y="0" width="12" height="12" rx="6" fill="#e5d654"/>
+    <rect x="14" y="0" width="12" height="12" rx="6" fill="#78b432"/>
+    <rect x="28" y="0" width="12" height="12" rx="6" fill="#c41e3a"/>
+    <rect x="42" y="0" width="12" height="12" rx="6" fill="#1e90ff"/>
+  </g>
+</svg>
