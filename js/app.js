@@ -2,7 +2,7 @@
 
 import { getBeercaps, saveBeercaps, addBeercap, updateBeercap, deleteBeercap, generateId, getTotalBeercapCount } from './storage.js';
 import { extractAverageColor, rgbToHex, getContrastColor } from './colorUtils.js';
-import { calculateGridDimensions, generateMosaic, createBeercapCodes, gridToCSV, generateLegend } from './gridGenerator.js';
+import { calculateGridDimensions, generateMosaic, generateMosaicOptimized, createBeercapCodes, gridToCSV, generateLegend } from './gridGenerator.js';
 
 // Application state
 let targetImage = null;
@@ -328,11 +328,16 @@ async function handleGenerateMosaic() {
     }
     
     // Show loading state
-    generateBtn.textContent = 'Generating...';
+    generateBtn.textContent = 'Optimizing...';
     generateBtn.disabled = true;
     
-    // Use setTimeout to allow UI to update
-    setTimeout(() => {
+    // Progress callback to update button text
+    const updateProgress = (message, percent) => {
+        generateBtn.textContent = `${message} (${percent}%)`;
+    };
+    
+    // Use setTimeout to allow UI to update, then run async
+    setTimeout(async () => {
         try {
             const dimensions = calculateGridDimensions(
                 totalCaps,
@@ -340,7 +345,8 @@ async function handleGenerateMosaic() {
                 targetImage.naturalHeight || targetImage.height
             );
             
-            const result = generateMosaic(targetImage, beercaps, dimensions);
+            // Use optimized algorithm for global color matching
+            const result = generateMosaicOptimized(targetImage, beercaps, dimensions, updateProgress);
             currentMosaic = result;
             beercapCodes = createBeercapCodes(beercaps);
             
@@ -486,6 +492,14 @@ function renderLegend(beercaps, codes) {
 function renderStats(stats) {
     const sortedUsage = [...stats.beercapUsage].sort((a, b) => b.used - a.used);
     
+    // Color error stats (only available with optimized algorithm)
+    const colorErrorHtml = stats.avgColorError !== undefined ? `
+        <div class="stat-item">
+            <span class="stat-value">${stats.avgColorError.toFixed(1)}</span>
+            <span class="stat-label">Avg Color Error</span>
+        </div>
+    ` : '';
+    
     statsContent.innerHTML = `
         <div class="stats-summary">
             <div class="stat-item">
@@ -500,7 +514,13 @@ function renderStats(stats) {
                 <span class="stat-value">${stats.totalRemaining}</span>
                 <span class="stat-label">Caps Remaining</span>
             </div>
+            ${colorErrorHtml}
         </div>
+        ${stats.avgColorError !== undefined ? `
+        <p class="optimization-note">
+            ✓ Global optimization applied - colors distributed for best overall match
+        </p>
+        ` : ''}
         <h4>Usage by Beercap</h4>
         <div class="usage-list">
             ${sortedUsage.map(b => `

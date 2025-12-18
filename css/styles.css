@@ -902,6 +902,16 @@ h1, h2, h3, h4 {
     transition: width var(--transition-normal);
 }
 
+.optimization-note {
+    padding: 0.75rem 1rem;
+    background: rgba(63, 185, 80, 0.1);
+    border: 1px solid var(--success);
+    border-radius: var(--radius-md);
+    color: var(--success);
+    font-size: 0.85rem;
+    margin-bottom: 1.5rem;
+}
+
 /* Responsive Adjustments */
 @media (max-width: 768px) {
     .app-container {
