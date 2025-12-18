@@ -64,9 +64,6 @@ function setupEventListeners() {
     
     // Target image
     targetImageInput.addEventListener('change', handleTargetImageUpload);
-    document.getElementById('target-upload-area').addEventListener('click', () => {
-        targetImageInput.click();
-    });
     
     // Drag and drop for target image
     const uploadArea = document.getElementById('target-upload-area');

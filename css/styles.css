@@ -239,7 +239,7 @@ h1, h2, h3, h4 {
 }
 
 .beercap-list {
-    max-height: 400px;
+    max-height: 500px;
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: var(--border-light) var(--bg-tertiary);
