@@ -11,8 +11,9 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/vanilla-JavaScript-yellow?style=flat-square" alt="Vanilla JS">
-  <img src="https://img.shields.io/badge/no-dependencies-green?style=flat-square" alt="No Dependencies">
-  <img src="https://img.shields.io/badge/runs-offline-blue?style=flat-square" alt="Runs Offline">
+  <img src="https://img.shields.io/badge/WebAssembly-Rust-orange?style=flat-square" alt="WebAssembly">
+  <img src="https://img.shields.io/badge/multi--threaded-Rayon-blue?style=flat-square" alt="Multi-threaded">
+  <img src="https://img.shields.io/badge/runs-offline-green?style=flat-square" alt="Runs Offline">
 </p>
 
 ---
@@ -22,11 +23,12 @@
 - **Beercap Library Management** — Upload photos of your beercaps, auto-extract their average colors, and track quantities
 - **Smart Color Matching** — Uses perceptually-weighted color distance for better human-eye matching
 - **Global Optimization** — Hungarian algorithm finds the optimal beercap placement across the entire mosaic
-- **Visual Preview** — See your mosaic before you build it
+- **Multi-threaded WASM** — Rust/WebAssembly with Rayon for blazing fast parallel computation
+- **Visual Preview** — See your mosaic before you build it (circular caps, hexagonal or square layout)
 - **Reference Grid** — Coded grid (A, B, C...) with legend for easy assembly
 - **Export Options** — Download as PNG or CSV for reference
 - **Offline Ready** — Everything runs in your browser, no server needed
-- **Persistent Storage** — Your beercap library is saved in localStorage
+- **Persistent Storage** — Your beercap library, target image, and settings are saved automatically
 
 ## Screenshot
 
@@ -49,7 +51,7 @@ Upload photos of each unique beercap you have. The app automatically extracts th
 Choose the image you want to recreate as a beercap mosaic. The app calculates the optimal grid size based on your total available caps and the image's aspect ratio.
 
 ### 3. Generate Mosaic
-The app uses the **Hungarian Algorithm** to find the globally optimal assignment of beercaps to grid positions. This ensures the best possible color match across the entire image, not just locally.
+The app uses the **Hungarian Algorithm** (compiled to WebAssembly with multi-threading) to find the globally optimal assignment of beercaps to grid positions. This ensures the best possible color match across the entire image.
 
 ### 4. Build Your Art
 Use the reference grid with letter codes (A, B, C...) to know exactly which beercap goes where. Export as PNG for visual reference or CSV for a spreadsheet view.
@@ -67,6 +69,7 @@ Cost Matrix: For each grid cell × each beercap slot
 └────────────────────────────────────────┘
            ↓
     Hungarian Algorithm (O(n³))
+    [Multi-threaded Rust/WASM]
            ↓
     Optimal Assignment
     (Minimizes total color error)
@@ -93,31 +96,71 @@ open index.html
 start index.html
 ```
 
-### Option 2: Local Development Server
-For a better development experience:
+### Option 2: Development Server (Recommended for Multi-threading)
+
+For full multi-threaded WASM performance, use the included Node.js server which sets the required COOP/COEP headers:
 
 ```bash
-# Using Python (built-in)
-python3 -m http.server 3000
+# Start the development server
+node server.js
 
-# Using Node.js
-npx serve .
+# Or using npm/yarn
+npm run dev
+yarn dev
 
 # Then open http://localhost:3000
 ```
+
+The server displays:
+```
+🍺 Beercap Mosaic Generator - Development Server
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Local:   http://localhost:3000
+
+  ✓ Cross-Origin-Opener-Policy: same-origin
+  ✓ Cross-Origin-Embedder-Policy: require-corp
+  ✓ SharedArrayBuffer enabled (WASM threads ready)
+```
+
+## Building WASM (for developers)
+
+If you want to rebuild the WebAssembly module:
+
+### Prerequisites
+- Rust (nightly): `rustup install nightly`
+- wasm32 target: `rustup target add wasm32-unknown-unknown --toolchain nightly`
+- rust-src: `rustup component add rust-src --toolchain nightly`
+- wasm-bindgen: `cargo install wasm-bindgen-cli`
+
+### Build Command
+```bash
+npm run build:wasm
+# or
+yarn build:wasm
+```
+
+This compiles the Rust Hungarian algorithm to multi-threaded WebAssembly.
 
 ## Project Structure
 
 ```
 image2beercaps/
 ├── index.html          # Main application
+├── server.js           # Dev server with COOP/COEP headers
+├── _headers            # Static hosting headers (Netlify/Cloudflare)
 ├── css/
 │   └── styles.css      # Dark theme styling
 ├── js/
 │   ├── app.js          # UI logic and event handling
 │   ├── colorUtils.js   # Color extraction & matching
-│   ├── gridGenerator.js # Hungarian algorithm & mosaic generation
+│   ├── gridGenerator.js # Mosaic generation (uses WASM)
+│   ├── wasmLoader.js   # WASM module loader with fallback
 │   └── storage.js      # LocalStorage persistence
+├── wasm/
+│   ├── Cargo.toml      # Rust project config
+│   ├── src/lib.rs      # Hungarian algorithm in Rust
+│   └── pkg/            # Compiled WASM output
 ├── logo.svg            # Project logo
 ├── screenshot.png      # App screenshot
 └── README.md           # This file
@@ -130,14 +173,17 @@ image2beercaps/
 - **Quantity Accuracy**: Enter accurate quantities — the algorithm respects your inventory limits
 - **Grid Size**: More caps = higher resolution mosaic. ~500 caps works well for recognizable images
 - **Color Variety**: A diverse color palette gives better results than many caps of similar colors
+- **Layout**: Try hexagonal layout for a more natural, tightly-packed look
 
 ## Browser Compatibility
 
 Works in all modern browsers:
-- Chrome 80+
-- Firefox 75+
-- Safari 13+
-- Edge 80+
+- Chrome 79+
+- Firefox 79+
+- Safari 15.2+
+- Edge 79+
+
+**Multi-threading** requires COOP/COEP headers (provided by the dev server or static host config). Without headers, the app falls back to single-threaded WASM, which is still much faster than JavaScript.
 
 ## Technical Details
 
@@ -146,22 +192,39 @@ Works in all modern browsers:
 | Color Extraction | Canvas API with center-weighted averaging |
 | Color Distance | Weighted Euclidean (perceptual) |
 | Optimization | Hungarian/Kuhn-Munkres Algorithm |
+| WASM Runtime | Rust + wasm-bindgen |
+| Multi-threading | Rayon + wasm-bindgen-rayon |
 | Storage | Browser LocalStorage |
 | Styling | CSS Custom Properties (variables) |
 
 ## Performance
 
-For mosaics under 500 caps, the Hungarian algorithm completes in under 1 second on modern hardware. Larger mosaics may take longer due to the O(n³) complexity.
+| Grid Size | JavaScript | Single-threaded WASM | Multi-threaded WASM |
+|-----------|------------|---------------------|---------------------|
+| 20×20     | ~200ms     | ~10ms               | ~5ms                |
+| 50×50     | ~15s       | ~500ms              | ~150ms              |
+| 100×100   | Minutes    | ~5s                 | ~1.5s               |
+
+## Deploying to Static Hosting
+
+For multi-threading support, configure your hosting to send these headers:
+
+### Netlify / Cloudflare Pages
+The included `_headers` file handles this automatically:
+```
+/*
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: require-corp
+```
 
 ## License
 
 **Non-Commercial Use Only**
 
-This project is free to use, modify for personal and non-commercial purposes. Commercial use is not permitted without explicit permission from the author.
+This project is free to use and modify for personal and non-commercial purposes. Commercial use is not permitted without explicit permission from the author.
 
 ---
 
 <p align="center">
   Made with 🍺 for beercap art enthusiasts
 </p>
-
