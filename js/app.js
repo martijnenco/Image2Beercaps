@@ -492,39 +492,26 @@ function drawGridWithImages(ctx, grid, cellSize, imageCache, isHex = false) {
                 y = rowIndex * cellSize;
             }
             
-            if (isHex) {
-                // Clip to circle for hex layout
-                ctx.save();
-                ctx.beginPath();
-                ctx.arc(x + cellSize / 2, y + cellSize / 2, cellSize / 2 - 1, 0, Math.PI * 2);
-                ctx.clip();
-                
-                if (cell.beercapImage && imageCache.has(cell.beercapImage)) {
-                    ctx.drawImage(imageCache.get(cell.beercapImage), x, y, cellSize, cellSize);
-                } else {
-                    ctx.fillStyle = rgbToHex(cell.beercapColor);
-                    ctx.fillRect(x, y, cellSize, cellSize);
-                }
-                
-                ctx.restore();
-                
-                // Draw circular border
-                ctx.beginPath();
-                ctx.arc(x + cellSize / 2, y + cellSize / 2, cellSize / 2 - 1, 0, Math.PI * 2);
-                ctx.strokeStyle = 'rgba(0,0,0,0.15)';
-                ctx.stroke();
+            // Always clip to circle (beercaps are round!)
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(x + cellSize / 2, y + cellSize / 2, cellSize / 2 - 1, 0, Math.PI * 2);
+            ctx.clip();
+            
+            if (cell.beercapImage && imageCache.has(cell.beercapImage)) {
+                ctx.drawImage(imageCache.get(cell.beercapImage), x, y, cellSize, cellSize);
             } else {
-                if (cell.beercapImage && imageCache.has(cell.beercapImage)) {
-                    ctx.drawImage(imageCache.get(cell.beercapImage), x, y, cellSize, cellSize);
-                } else {
-                    ctx.fillStyle = rgbToHex(cell.beercapColor);
-                    ctx.fillRect(x, y, cellSize, cellSize);
-                }
-                
-                // Draw subtle border
-                ctx.strokeStyle = 'rgba(0,0,0,0.1)';
-                ctx.strokeRect(x, y, cellSize, cellSize);
+                ctx.fillStyle = rgbToHex(cell.beercapColor);
+                ctx.fillRect(x, y, cellSize, cellSize);
             }
+            
+            ctx.restore();
+            
+            // Draw circular border
+            ctx.beginPath();
+            ctx.arc(x + cellSize / 2, y + cellSize / 2, cellSize / 2 - 1, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+            ctx.stroke();
         });
     });
 }
