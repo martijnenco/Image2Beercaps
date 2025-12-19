@@ -1,7 +1,7 @@
 // Main application logic
 
 import { getBeercaps, saveBeercaps, addBeercap, updateBeercap, deleteBeercap, generateId, getTotalBeercapCount } from './storage.js';
-import { extractAverageColor, rgbToHex, getContrastColor } from './colorUtils.js';
+import { extractAverageColor, rgbToHex, getContrastColor, colorDistance } from './colorUtils.js';
 import { calculateGridDimensions, generateMosaic, generateMosaicOptimized, createBeercapCodes, gridToCSV, generateLegend, HEX_VERTICAL_FACTOR } from './gridGenerator.js';
 import { initWasm, isWasmReady, isThreaded, getThreadCount } from './wasmLoader.js';
 import { startCamera, stopCamera, scanImage, drawDetectionOverlay } from './scanner.js';
@@ -972,43 +972,113 @@ async function processScanImage(imageSource) {
 
 function displayScanClusters(clusters) {
     const resultsDiv = document.getElementById('scan-results');
-    const clustersDiv = document.getElementById('scan-clusters');
-    const uniqueCount = document.getElementById('scan-unique-count');
+    const newSection = document.getElementById('scan-new-section');
+    const existingSection = document.getElementById('scan-existing-section');
+    const newClustersDiv = document.getElementById('scan-new-clusters');
+    const existingClustersDiv = document.getElementById('scan-existing-clusters');
+    const newCount = document.getElementById('scan-new-count');
+    const existingCount = document.getElementById('scan-existing-count');
+    const emptyMessage = document.getElementById('scan-empty-message');
     const addBtn = document.getElementById('scan-add-btn');
     
-    uniqueCount.textContent = clusters.length;
-    clustersDiv.innerHTML = '';
+    // Reset
+    newClustersDiv.innerHTML = '';
+    existingClustersDiv.innerHTML = '';
+    newSection.classList.add('hidden');
+    existingSection.classList.add('hidden');
+    emptyMessage.classList.add('hidden');
     
     if (clusters.length === 0) {
-        clustersDiv.innerHTML = '<p class="scan-hint">No beercaps detected. Try a photo with better lighting and contrast.</p>';
+        emptyMessage.classList.remove('hidden');
         resultsDiv.classList.remove('hidden');
         addBtn.disabled = true;
         return;
     }
     
-    clusters.forEach((cluster, idx) => {
-        const item = document.createElement('div');
-        item.className = 'scan-cluster-item selected';
-        item.dataset.clusterId = cluster.id;
+    // Get existing caps for comparison
+    const existingCaps = getBeercaps();
+    const COLOR_MATCH_THRESHOLD = 30;
+    
+    const newCaps = [];
+    const matchingCaps = [];
+    
+    // Categorize each cluster
+    clusters.forEach((cluster) => {
+        let matchingCap = null;
+        let bestDistance = Infinity;
         
-        const colorHex = rgbToHex(cluster.color);
+        for (const existingCap of existingCaps) {
+            const distance = colorDistance(cluster.color, existingCap.color);
+            if (distance < bestDistance && distance < COLOR_MATCH_THRESHOLD) {
+                bestDistance = distance;
+                matchingCap = existingCap;
+            }
+        }
         
+        if (matchingCap) {
+            matchingCaps.push({ cluster, matchingCap });
+        } else {
+            newCaps.push(cluster);
+        }
+    });
+    
+    // Render new caps
+    if (newCaps.length > 0) {
+        newCount.textContent = newCaps.length;
+        newSection.classList.remove('hidden');
+        
+        newCaps.forEach((cluster, idx) => {
+            const item = createClusterItem(cluster, idx, false, null);
+            newClustersDiv.appendChild(item);
+        });
+    }
+    
+    // Render matching caps
+    if (matchingCaps.length > 0) {
+        existingCount.textContent = matchingCaps.length;
+        existingSection.classList.remove('hidden');
+        
+        matchingCaps.forEach(({ cluster, matchingCap }, idx) => {
+            const item = createClusterItem(cluster, idx, true, matchingCap);
+            existingClustersDiv.appendChild(item);
+        });
+    }
+    
+    resultsDiv.classList.remove('hidden');
+    addBtn.disabled = false;
+    updateAddButtonState();
+}
+
+function createClusterItem(cluster, idx, isExisting, matchingCap) {
+    const item = document.createElement('div');
+    item.className = 'scan-cluster-item selected';
+    item.dataset.clusterId = cluster.id;
+    
+    const colorHex = rgbToHex(cluster.color);
+    
+    if (isExisting && matchingCap) {
+        // Show that it matches an existing cap
+        item.innerHTML = `
+            <img src="${cluster.imageDataUrl}" alt="Cap ${idx + 1}" class="scan-cluster-image">
+            <span class="scan-cluster-count">+${cluster.count}</span>
+            <div class="scan-cluster-match" title="Will add to: ${matchingCap.name}">
+                → ${matchingCap.name}
+            </div>
+        `;
+    } else {
         item.innerHTML = `
             <img src="${cluster.imageDataUrl}" alt="Cap ${idx + 1}" class="scan-cluster-image">
             <span class="scan-cluster-count">×${cluster.count}</span>
             <div class="scan-cluster-color" style="background: ${colorHex}"></div>
         `;
-        
-        item.addEventListener('click', () => {
-            item.classList.toggle('selected');
-            updateAddButtonState();
-        });
-        
-        clustersDiv.appendChild(item);
+    }
+    
+    item.addEventListener('click', () => {
+        item.classList.toggle('selected');
+        updateAddButtonState();
     });
     
-    resultsDiv.classList.remove('hidden');
-    addBtn.disabled = false;
+    return item;
 }
 
 function updateAddButtonState() {
@@ -1052,21 +1122,51 @@ async function addScannedCapsToLibrary() {
     const selectedItems = document.querySelectorAll('.scan-cluster-item.selected');
     const selectedIds = new Set(Array.from(selectedItems).map(el => parseInt(el.dataset.clusterId)));
     
+    // Get existing beercaps to check for duplicates
+    const existingCaps = getBeercaps();
+    const COLOR_MATCH_THRESHOLD = 30; // Color distance threshold for considering caps as same
+    
     let addedCount = 0;
+    let mergedCount = 0;
     
     for (const cluster of scanResults.clusters) {
         if (!selectedIds.has(cluster.id)) continue;
         
-        const beercap = {
-            id: generateId(),
-            name: `Scanned Cap ${addedCount + 1}`,
-            color: cluster.color,
-            imageData: cluster.imageDataUrl,
-            quantity: cluster.count
-        };
+        // Check if a similar color already exists in the library
+        let matchingCap = null;
+        let bestDistance = Infinity;
         
-        addBeercap(beercap);
-        addedCount++;
+        for (const existingCap of existingCaps) {
+            const distance = colorDistance(cluster.color, existingCap.color);
+            if (distance < bestDistance && distance < COLOR_MATCH_THRESHOLD) {
+                bestDistance = distance;
+                matchingCap = existingCap;
+            }
+        }
+        
+        if (matchingCap) {
+            // Add quantity to existing cap
+            updateBeercap(matchingCap.id, { 
+                quantity: matchingCap.quantity + cluster.count 
+            });
+            // Update local reference for subsequent matches
+            matchingCap.quantity += cluster.count;
+            mergedCount++;
+        } else {
+            // Add as new cap
+            const beercap = {
+                id: generateId(),
+                name: `Scanned Cap ${addedCount + 1}`,
+                color: cluster.color,
+                imageData: cluster.imageDataUrl,
+                quantity: cluster.count
+            };
+            
+            addBeercap(beercap);
+            // Add to existingCaps for subsequent duplicate checks in this batch
+            existingCaps.push(beercap);
+            addedCount++;
+        }
     }
     
     // Refresh the library display
@@ -1078,6 +1178,16 @@ async function addScannedCapsToLibrary() {
     closeScanModal();
     
     // Show success message
-    alert(`Added ${addedCount} beercap types to your library!`);
+    let message = '';
+    if (addedCount > 0 && mergedCount > 0) {
+        message = `Added ${addedCount} new cap type(s) and merged ${mergedCount} with existing caps.`;
+    } else if (addedCount > 0) {
+        message = `Added ${addedCount} new beercap type(s) to your library!`;
+    } else if (mergedCount > 0) {
+        message = `Merged ${mergedCount} cap(s) with existing caps in your library.`;
+    } else {
+        message = 'No caps were added.';
+    }
+    alert(message);
 }
 

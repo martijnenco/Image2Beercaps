@@ -241,8 +241,15 @@
                 
                 <!-- Clustered results -->
                 <div id="scan-results" class="scan-results hidden">
-                    <h4>Detected Unique Caps (<span id="scan-unique-count">0</span>)</h4>
-                    <div id="scan-clusters" class="scan-clusters"></div>
+                    <div id="scan-new-section" class="scan-section hidden">
+                        <h4 class="scan-section-title new">🆕 New Caps (<span id="scan-new-count">0</span>)</h4>
+                        <div id="scan-new-clusters" class="scan-clusters"></div>
+                    </div>
+                    <div id="scan-existing-section" class="scan-section hidden">
+                        <h4 class="scan-section-title existing">📦 Matches Existing (<span id="scan-existing-count">0</span>)</h4>
+                        <div id="scan-existing-clusters" class="scan-clusters"></div>
+                    </div>
+                    <div id="scan-empty-message" class="scan-hint hidden">No beercaps detected. Try a photo with better lighting and contrast.</div>
                 </div>
             </div>
             

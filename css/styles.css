@@ -1322,6 +1322,36 @@ input[type="number"]::-webkit-outer-spin-button {
     border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
+.scan-cluster-match {
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+    padding: 0 0.25rem;
+}
+
+.scan-section {
+    margin-bottom: 1rem;
+}
+
+.scan-section-title {
+    font-size: 0.9rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.scan-section-title.new {
+    color: #4ade80;
+}
+
+.scan-section-title.existing {
+    color: var(--accent-primary);
+}
+
 #scan-capture-btn {
     display: block;
     width: 100%;
