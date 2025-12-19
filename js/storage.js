@@ -1,6 +1,8 @@
 // Storage module for beercap library persistence using LocalStorage
 
 const STORAGE_KEY = 'beercap_library';
+const LAYOUT_KEY = 'beercap_layout';
+const TARGET_IMAGE_KEY = 'beercap_target_image';
 
 /**
  * Get all beercaps from storage
@@ -89,5 +91,69 @@ export function clearAllBeercaps() {
 export function getTotalBeercapCount() {
     const beercaps = getBeercaps();
     return beercaps.reduce((sum, b) => sum + (b.quantity || 0), 0);
+}
+
+/**
+ * Save layout setting to storage
+ * @param {string} layout - 'square' or 'hex'
+ */
+export function saveLayout(layout) {
+    try {
+        localStorage.setItem(LAYOUT_KEY, layout);
+    } catch (e) {
+        console.error('Error saving layout:', e);
+    }
+}
+
+/**
+ * Get layout setting from storage
+ * @returns {string} Layout type ('hex' by default)
+ */
+export function getLayout() {
+    try {
+        return localStorage.getItem(LAYOUT_KEY) || 'hex';
+    } catch (e) {
+        console.error('Error reading layout:', e);
+        return 'hex';
+    }
+}
+
+/**
+ * Save target image to storage
+ * @param {string} imageData - Base64 data URL of the image
+ */
+export function saveTargetImage(imageData) {
+    try {
+        localStorage.setItem(TARGET_IMAGE_KEY, imageData);
+    } catch (e) {
+        console.error('Error saving target image:', e);
+        if (e.name === 'QuotaExceededError') {
+            console.warn('Target image too large to save. It will not persist across refreshes.');
+        }
+    }
+}
+
+/**
+ * Get target image from storage
+ * @returns {string|null} Base64 data URL or null if not set
+ */
+export function getTargetImage() {
+    try {
+        return localStorage.getItem(TARGET_IMAGE_KEY);
+    } catch (e) {
+        console.error('Error reading target image:', e);
+        return null;
+    }
+}
+
+/**
+ * Clear target image from storage
+ */
+export function clearTargetImage() {
+    try {
+        localStorage.removeItem(TARGET_IMAGE_KEY);
+    } catch (e) {
+        console.error('Error clearing target image:', e);
+    }
 }
 

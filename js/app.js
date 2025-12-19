@@ -38,13 +38,65 @@ const downloadCsvBtn = document.getElementById('download-csv-btn');
 const totalCapsDisplay = document.getElementById('total-caps');
 const clearLibraryBtn = document.getElementById('clear-library-btn');
 
+// LocalStorage keys
+const STORAGE_LAYOUT_KEY = 'beercap_layout';
+const STORAGE_TARGET_IMAGE_KEY = 'beercap_target_image';
+
 // Initialize application
 document.addEventListener('DOMContentLoaded', init);
 
 function init() {
     loadBeercapLibrary();
+    loadSavedLayout();
+    loadSavedTargetImage();
     setupEventListeners();
     updateTotalCaps();
+}
+
+// Load saved layout setting
+function loadSavedLayout() {
+    const savedLayout = localStorage.getItem(STORAGE_LAYOUT_KEY);
+    if (savedLayout && (savedLayout === 'square' || savedLayout === 'hex')) {
+        currentLayout = savedLayout;
+        const radioBtn = document.getElementById(savedLayout === 'hex' ? 'layout-hex' : 'layout-square');
+        if (radioBtn) radioBtn.checked = true;
+    }
+}
+
+// Save layout setting
+function saveLayout(layout) {
+    localStorage.setItem(STORAGE_LAYOUT_KEY, layout);
+}
+
+// Load saved target image
+function loadSavedTargetImage() {
+    const savedImageData = localStorage.getItem(STORAGE_TARGET_IMAGE_KEY);
+    if (savedImageData) {
+        const img = new Image();
+        img.onload = () => {
+            targetImage = img;
+            targetImagePreview.src = savedImageData;
+            targetImagePreview.classList.remove('hidden');
+            targetImagePlaceholder.classList.add('hidden');
+            updateGridInfo();
+            generateBtn.disabled = false;
+        };
+        img.onerror = () => {
+            // Clear invalid saved image
+            localStorage.removeItem(STORAGE_TARGET_IMAGE_KEY);
+        };
+        img.src = savedImageData;
+    }
+}
+
+// Save target image
+function saveTargetImage(imageDataUrl) {
+    try {
+        localStorage.setItem(STORAGE_TARGET_IMAGE_KEY, imageDataUrl);
+    } catch (e) {
+        // Handle quota exceeded - image might be too large
+        console.warn('Could not save target image to localStorage:', e.message);
+    }
 }
 
 function setupEventListeners() {
@@ -100,6 +152,7 @@ function setupEventListeners() {
     document.querySelectorAll('input[name="layout"]').forEach(radio => {
         radio.addEventListener('change', (e) => {
             currentLayout = e.target.value;
+            saveLayout(currentLayout);
             updateGridInfo();
         });
     });
@@ -286,16 +339,19 @@ function handleTargetImageUpload(e) {
     
     const reader = new FileReader();
     reader.onload = (event) => {
+        const imageDataUrl = event.target.result;
         const img = new Image();
         img.onload = () => {
             targetImage = img;
-            targetImagePreview.src = event.target.result;
+            targetImagePreview.src = imageDataUrl;
             targetImagePreview.classList.remove('hidden');
             targetImagePlaceholder.classList.add('hidden');
             updateGridInfo();
             generateBtn.disabled = false;
+            // Save to localStorage for persistence
+            saveTargetImage(imageDataUrl);
         };
-        img.src = event.target.result;
+        img.src = imageDataUrl;
     };
     reader.readAsDataURL(file);
 }
