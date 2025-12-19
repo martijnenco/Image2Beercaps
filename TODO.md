@@ -84,6 +84,7 @@ A list of potential features and improvements for future development.
 - [x] Similarity clustering for duplicate detection
 - [x] Merge scanned caps with existing library
 - [x] Inline name editing in library
+- [x] SEO optimization (meta tags, Open Graph, Twitter Cards, JSON-LD, sitemap)
 
 ---
 

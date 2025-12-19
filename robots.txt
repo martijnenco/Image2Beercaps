@@ -1,0 +1,13 @@
+# Beercap Mosaic Generator - robots.txt
+
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://beercap-mosaic.example.com/sitemap.xml
+
+# Disallow build artifacts
+Disallow: /wasm/src/
+Disallow: /wasm/target/
+Disallow: /node_modules/
+
