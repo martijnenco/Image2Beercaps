@@ -1,11 +1,28 @@
-// WASM module loader for Hungarian algorithm
+// WASM module loader for Hungarian algorithm with multi-threading support
 
 let wasmModule = null;
 let wasmLoadAttempted = false;
 let wasmLoadPromise = null;
+let threadCount = 1;
+let threadsEnabled = false;
 
 /**
- * Initialize and load the WASM module
+ * Check if SharedArrayBuffer is available (required for WASM threads)
+ * @returns {boolean}
+ */
+function isSharedArrayBufferAvailable() {
+    try {
+        // Check if SharedArrayBuffer exists and is usable
+        // This requires COOP/COEP headers to be set
+        return typeof SharedArrayBuffer !== 'undefined' && 
+               crossOriginIsolated === true;
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Initialize and load the WASM module with optional multi-threading
  * @returns {Promise<boolean>} True if WASM loaded successfully, false otherwise
  */
 export async function initWasm() {
@@ -24,12 +41,38 @@ export async function initWasm() {
             // Try to load the WASM module
             const module = await import('../wasm/pkg/hungarian_wasm.js');
             await module.default(); // Initialize the WASM module
+            
+            // Try to initialize thread pool if SharedArrayBuffer is available
+            if (isSharedArrayBufferAvailable()) {
+                try {
+                    // Get the number of logical processors (or default to 4)
+                    const numCores = navigator.hardwareConcurrency || 4;
+                    // Use most cores but leave one for the main thread
+                    const poolSize = Math.max(2, numCores - 1);
+                    
+                    await module.initThreadPool(poolSize);
+                    threadCount = module.get_thread_count();
+                    threadsEnabled = module.threads_available();
+                    
+                    console.log(`✓ WASM Hungarian algorithm loaded with ${threadCount} threads`);
+                } catch (threadError) {
+                    console.warn('Thread pool initialization failed, using single-threaded mode:', threadError.message);
+                    threadCount = 1;
+                    threadsEnabled = false;
+                }
+            } else {
+                console.log('✓ WASM Hungarian algorithm loaded (single-threaded, COOP/COEP headers not set)');
+                threadCount = 1;
+                threadsEnabled = false;
+            }
+            
             wasmModule = module;
-            console.log('✓ WASM Hungarian algorithm loaded successfully');
             return true;
         } catch (error) {
             console.warn('WASM Hungarian algorithm not available, using JS fallback:', error.message);
             wasmModule = null;
+            threadCount = 0;
+            threadsEnabled = false;
             return false;
         }
     })();
@@ -43,6 +86,22 @@ export async function initWasm() {
  */
 export function isWasmReady() {
     return wasmModule !== null;
+}
+
+/**
+ * Check if multi-threading is enabled
+ * @returns {boolean}
+ */
+export function isThreaded() {
+    return threadsEnabled;
+}
+
+/**
+ * Get the number of threads being used
+ * @returns {number}
+ */
+export function getThreadCount() {
+    return threadCount;
 }
 
 /**
@@ -71,7 +130,6 @@ export function hungarianWasm(costMatrix) {
     }
     
     // Call the WASM function
-    console.log('Calling WASM function with:', flatMatrix, numRows, numCols);
     const result = wasmModule.hungarian_algorithm(flatMatrix, numRows, numCols);
     
     // Convert Int32Array to regular array
@@ -85,7 +143,9 @@ export function hungarianWasm(costMatrix) {
 export function getWasmStatus() {
     return {
         loaded: wasmModule !== null,
-        attempted: wasmLoadAttempted
+        attempted: wasmLoadAttempted,
+        threaded: threadsEnabled,
+        threadCount: threadCount,
+        sharedArrayBufferAvailable: isSharedArrayBufferAvailable()
     };
 }
-

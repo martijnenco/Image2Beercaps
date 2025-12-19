@@ -1,0 +1,8 @@
+[target.wasm32-unknown-unknown]
+rustflags = [
+    "-C", "target-feature=+atomics,+bulk-memory,+mutable-globals",
+    "-C", "link-args=--shared-memory --import-memory --max-memory=1073741824 --export=__wasm_init_tls --export=__tls_size --export=__tls_align --export=__tls_base"
+]
+
+[unstable]
+build-std = ["panic_abort", "std"]

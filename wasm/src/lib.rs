@@ -1,4 +1,8 @@
 use wasm_bindgen::prelude::*;
+use rayon::prelude::*;
+
+// Export the rayon thread pool initialization for WASM
+pub use wasm_bindgen_rayon::init_thread_pool;
 
 /// Hungarian Algorithm (Kuhn-Munkres) for optimal assignment
 /// Finds the minimum cost assignment between workers (cells) and jobs (beercap slots)
@@ -18,18 +22,40 @@ pub fn hungarian_algorithm(cost_matrix: &[f64], num_rows: usize, num_cols: usize
     // We need a square matrix for the algorithm, pad if necessary
     let size = n.max(m);
     
-    // Create padded cost matrix (2D represented as 1D for efficiency)
-    let mut cost = vec![0.0f64; size * size];
-    
-    for i in 0..size {
-        for j in 0..size {
-            if i < n && j < m {
-                cost[i * size + j] = cost_matrix[i * m + j];
+    // Create padded cost matrix using parallel iteration for large matrices
+    let cost: Vec<f64> = if size > 50 {
+        // Parallel version for larger matrices
+        (0..size)
+            .into_par_iter()
+            .flat_map_iter(|i| {
+                (0..size).map(move |j| {
+                    if i < n && j < m {
+                        cost_matrix[i * m + j]
+                    } else {
+                        0.0
+                    }
+                })
+            })
+            .collect()
+    } else {
+        // Sequential version for small matrices (overhead not worth it)
+        let mut cost = vec![0.0f64; size * size];
+        for i in 0..size {
+            for j in 0..size {
+                if i < n && j < m {
+                    cost[i * size + j] = cost_matrix[i * m + j];
+                }
             }
-            // Padding with zeros (dummy assignments) - already initialized to 0
         }
-    }
+        cost
+    };
     
+    // Run the Hungarian algorithm (sequential - inherently hard to parallelize)
+    hungarian_core(&cost, size, n, m)
+}
+
+/// Core Hungarian algorithm implementation
+fn hungarian_core(cost: &[f64], size: usize, n: usize, m: usize) -> Vec<i32> {
     // u and v are potentials for rows and columns (1-indexed, so size+1)
     let mut u = vec![0.0f64; size + 1];
     let mut v = vec![0.0f64; size + 1];
@@ -108,6 +134,18 @@ pub fn hungarian_algorithm(cost_matrix: &[f64], num_rows: usize, num_cols: usize
     assignment
 }
 
+/// Check if threads are available (for UI feedback)
+#[wasm_bindgen]
+pub fn threads_available() -> bool {
+    rayon::current_num_threads() > 1
+}
+
+/// Get the number of threads in the pool
+#[wasm_bindgen]
+pub fn get_thread_count() -> usize {
+    rayon::current_num_threads()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -153,4 +191,3 @@ mod tests {
         assert_ne!(result[0], result[1]);
     }
 }
-

@@ -3,7 +3,7 @@
 import { getBeercaps, saveBeercaps, addBeercap, updateBeercap, deleteBeercap, generateId, getTotalBeercapCount } from './storage.js';
 import { extractAverageColor, rgbToHex, getContrastColor } from './colorUtils.js';
 import { calculateGridDimensions, generateMosaic, generateMosaicOptimized, createBeercapCodes, gridToCSV, generateLegend, HEX_VERTICAL_FACTOR } from './gridGenerator.js';
-import { initWasm, isWasmReady } from './wasmLoader.js';
+import { initWasm, isWasmReady, isThreaded, getThreadCount } from './wasmLoader.js';
 
 // Application state
 let targetImage = null;
@@ -69,8 +69,15 @@ async function updateWasmStatus() {
     if (isWasmReady()) {
         statusEl.classList.remove('loading', 'fallback');
         statusEl.classList.add('ready');
-        iconEl.textContent = '⚡';
-        textEl.textContent = 'WASM Accelerated';
+        
+        if (isThreaded()) {
+            const threads = getThreadCount();
+            iconEl.textContent = '🚀';
+            textEl.textContent = `WASM ${threads} threads`;
+        } else {
+            iconEl.textContent = '⚡';
+            textEl.textContent = 'WASM (single-threaded)';
+        }
     } else {
         statusEl.classList.remove('loading', 'ready');
         statusEl.classList.add('fallback');
