@@ -99,48 +99,95 @@ export function hungarianAlgorithm(costMatrix) {
     return assignment;
 }
 
+// Hexagonal packing vertical factor (cos 30° ≈ 0.866)
+export const HEX_VERTICAL_FACTOR = 0.866;
+
 /**
  * Calculate optimal grid dimensions based on total caps and image aspect ratio
  * @param {number} totalCaps - Total available beercaps
  * @param {number} imageWidth - Original image width
  * @param {number} imageHeight - Original image height
- * @returns {Object} Grid dimensions {width, height, totalCells}
+ * @param {string} layout - 'square' or 'hex'
+ * @returns {Object} Grid dimensions {width, height, totalCells, layout}
  */
-export function calculateGridDimensions(totalCaps, imageWidth, imageHeight) {
+export function calculateGridDimensions(totalCaps, imageWidth, imageHeight, layout = 'hex') {
     const aspectRatio = imageWidth / imageHeight;
     
-    // Calculate grid dimensions that best fit the aspect ratio
-    // gridWidth / gridHeight should approximate imageWidth / imageHeight
-    // gridWidth * gridHeight should be <= totalCaps
-    
-    // From: gridW * gridH = N and gridW/gridH = aspectRatio
-    // gridW = sqrt(N * aspectRatio)
-    // gridH = sqrt(N / aspectRatio)
-    
-    let gridWidth = Math.sqrt(totalCaps * aspectRatio);
-    let gridHeight = Math.sqrt(totalCaps / aspectRatio);
-    
-    // Round and ensure we don't exceed total caps
-    gridWidth = Math.floor(gridWidth);
-    gridHeight = Math.floor(gridHeight);
-    
-    // Ensure at least 1x1
-    gridWidth = Math.max(1, gridWidth);
-    gridHeight = Math.max(1, gridHeight);
-    
-    // Adjust to maximize usage without exceeding
-    while ((gridWidth + 1) * gridHeight <= totalCaps) {
-        gridWidth++;
+    if (layout === 'hex') {
+        // In hexagonal packing:
+        // - Rows are packed tighter vertically (factor of ~0.866)
+        // - Even rows are offset, so effective aspect ratio changes
+        // - We need to account for the visual aspect ratio being different from grid aspect ratio
+        
+        // Adjust aspect ratio for hex packing visual appearance
+        const visualAspectRatio = aspectRatio / HEX_VERTICAL_FACTOR;
+        
+        let gridWidth = Math.sqrt(totalCaps * visualAspectRatio);
+        let gridHeight = Math.sqrt(totalCaps / visualAspectRatio);
+        
+        gridWidth = Math.floor(gridWidth);
+        gridHeight = Math.floor(gridHeight);
+        
+        gridWidth = Math.max(1, gridWidth);
+        gridHeight = Math.max(1, gridHeight);
+        
+        // Calculate total cells accounting for hex layout
+        // In hex, we can fit more rows in the same vertical space
+        let totalCells = calculateHexTotalCells(gridWidth, gridHeight);
+        
+        // Adjust to maximize usage without exceeding
+        while (calculateHexTotalCells(gridWidth + 1, gridHeight) <= totalCaps) {
+            gridWidth++;
+        }
+        while (calculateHexTotalCells(gridWidth, gridHeight + 1) <= totalCaps) {
+            gridHeight++;
+        }
+        
+        totalCells = calculateHexTotalCells(gridWidth, gridHeight);
+        
+        return {
+            width: gridWidth,
+            height: gridHeight,
+            totalCells: totalCells,
+            layout: 'hex'
+        };
+    } else {
+        // Square grid - original logic
+        let gridWidth = Math.sqrt(totalCaps * aspectRatio);
+        let gridHeight = Math.sqrt(totalCaps / aspectRatio);
+        
+        gridWidth = Math.floor(gridWidth);
+        gridHeight = Math.floor(gridHeight);
+        
+        gridWidth = Math.max(1, gridWidth);
+        gridHeight = Math.max(1, gridHeight);
+        
+        while ((gridWidth + 1) * gridHeight <= totalCaps) {
+            gridWidth++;
+        }
+        while (gridWidth * (gridHeight + 1) <= totalCaps) {
+            gridHeight++;
+        }
+        
+        return {
+            width: gridWidth,
+            height: gridHeight,
+            totalCells: gridWidth * gridHeight,
+            layout: 'square'
+        };
     }
-    while (gridWidth * (gridHeight + 1) <= totalCaps) {
-        gridHeight++;
-    }
-    
-    return {
-        width: gridWidth,
-        height: gridHeight,
-        totalCells: gridWidth * gridHeight
-    };
+}
+
+/**
+ * Calculate total cells in a hexagonal grid
+ * Even rows (0-indexed: 0, 2, 4...) have full width, odd rows have full width too
+ * @param {number} width - Grid width
+ * @param {number} height - Grid height
+ * @returns {number} Total cells
+ */
+function calculateHexTotalCells(width, height) {
+    // All rows have the same width in our implementation
+    return width * height;
 }
 
 /**
@@ -260,8 +307,15 @@ export function generateMosaicOptimized(targetImage, beercaps, gridDimensions, p
     
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     
+    const isHex = gridDimensions.layout === 'hex';
+    
+    // For hex layout, rows are packed tighter vertically
+    const effectiveHeight = isHex 
+        ? canvas.height / (1 + (gridDimensions.height - 1) * HEX_VERTICAL_FACTOR)
+        : canvas.height / gridDimensions.height;
+    
     const cellWidth = canvas.width / gridDimensions.width;
-    const cellHeight = canvas.height / gridDimensions.height;
+    const cellHeight = effectiveHeight;
     
     const numCells = gridDimensions.width * gridDimensions.height;
     
@@ -271,8 +325,19 @@ export function generateMosaicOptimized(targetImage, beercaps, gridDimensions, p
     const cellColors = [];
     for (let row = 0; row < gridDimensions.height; row++) {
         for (let col = 0; col < gridDimensions.width; col++) {
-            const startX = Math.floor(col * cellWidth);
-            const startY = Math.floor(row * cellHeight);
+            // Calculate position - hex layout offsets even rows
+            let startX, startY;
+            
+            if (isHex) {
+                // Even rows (0, 2, 4...) are offset by half cell width
+                const xOffset = (row % 2 === 0) ? cellWidth / 2 : 0;
+                startX = Math.floor(col * cellWidth + xOffset);
+                startY = Math.floor(row * cellHeight * HEX_VERTICAL_FACTOR);
+            } else {
+                startX = Math.floor(col * cellWidth);
+                startY = Math.floor(row * cellHeight);
+            }
+            
             const regionWidth = Math.ceil(cellWidth);
             const regionHeight = Math.ceil(cellHeight);
             

@@ -2,12 +2,13 @@
 
 import { getBeercaps, saveBeercaps, addBeercap, updateBeercap, deleteBeercap, generateId, getTotalBeercapCount } from './storage.js';
 import { extractAverageColor, rgbToHex, getContrastColor } from './colorUtils.js';
-import { calculateGridDimensions, generateMosaic, generateMosaicOptimized, createBeercapCodes, gridToCSV, generateLegend } from './gridGenerator.js';
+import { calculateGridDimensions, generateMosaic, generateMosaicOptimized, createBeercapCodes, gridToCSV, generateLegend, HEX_VERTICAL_FACTOR } from './gridGenerator.js';
 
 // Application state
 let targetImage = null;
 let currentMosaic = null;
 let beercapCodes = null;
+let currentLayout = 'hex'; // 'square' or 'hex'
 
 // DOM Elements
 const beercapList = document.getElementById('beercap-list');
@@ -94,6 +95,20 @@ function setupEventListeners() {
     // Export buttons
     downloadPngBtn.addEventListener('click', handleDownloadPng);
     downloadCsvBtn.addEventListener('click', handleDownloadCsv);
+    
+    // Layout toggle
+    document.querySelectorAll('input[name="layout"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            currentLayout = e.target.value;
+            updateGridInfo();
+        });
+    });
+}
+
+// Get current layout setting
+function getLayoutType() {
+    const selected = document.querySelector('input[name="layout"]:checked');
+    return selected ? selected.value : 'hex';
 }
 
 // Beercap Library Functions
@@ -292,6 +307,7 @@ function updateTotalCaps() {
 
 function updateGridInfo() {
     const totalCaps = getTotalBeercapCount();
+    const layout = getLayoutType();
     
     if (!targetImage || totalCaps === 0) {
         gridInfo.textContent = 'Upload an image and add beercaps to see grid dimensions';
@@ -301,10 +317,12 @@ function updateGridInfo() {
     const dimensions = calculateGridDimensions(
         totalCaps,
         targetImage.naturalWidth || targetImage.width,
-        targetImage.naturalHeight || targetImage.height
+        targetImage.naturalHeight || targetImage.height,
+        layout
     );
     
-    gridInfo.textContent = `Grid: ${dimensions.width} × ${dimensions.height} = ${dimensions.totalCells} caps`;
+    const layoutLabel = layout === 'hex' ? 'Hexagonal' : 'Square';
+    gridInfo.textContent = `${layoutLabel} Grid: ${dimensions.width} × ${dimensions.height} = ${dimensions.totalCells} caps`;
 }
 
 // Mosaic Generation
@@ -337,12 +355,15 @@ async function handleGenerateMosaic() {
     };
     
     // Use setTimeout to allow UI to update, then run async
+    const layout = getLayoutType();
+    
     setTimeout(async () => {
         try {
             const dimensions = calculateGridDimensions(
                 totalCaps,
                 targetImage.naturalWidth || targetImage.width,
-                targetImage.naturalHeight || targetImage.height
+                targetImage.naturalHeight || targetImage.height,
+                layout
             );
             
             // Use optimized algorithm for global color matching
@@ -351,7 +372,7 @@ async function handleGenerateMosaic() {
             beercapCodes = createBeercapCodes(beercaps);
             
             renderVisualPreview(result.grid, dimensions);
-            renderReferenceGrid(result.grid, beercapCodes);
+            renderReferenceGrid(result.grid, beercapCodes, dimensions);
             renderLegend(beercaps, beercapCodes);
             renderStats(result.usageStats);
             
@@ -375,6 +396,7 @@ async function handleGenerateMosaic() {
 function renderVisualPreview(grid, dimensions) {
     const canvas = visualCanvas;
     const ctx = canvas.getContext('2d');
+    const isHex = dimensions.layout === 'hex';
     
     // Calculate cell size for a reasonable canvas size
     const maxCanvasWidth = 1200;
@@ -382,24 +404,29 @@ function renderVisualPreview(grid, dimensions) {
     
     const cellSize = Math.min(
         Math.floor(maxCanvasWidth / dimensions.width),
-        Math.floor(maxCanvasHeight / dimensions.height),
+        Math.floor(maxCanvasHeight / (dimensions.height * (isHex ? HEX_VERTICAL_FACTOR : 1))),
         50 // Maximum cell size
     );
     
-    canvas.width = dimensions.width * cellSize;
-    canvas.height = dimensions.height * cellSize;
+    // Calculate canvas size based on layout
+    if (isHex) {
+        // Hex layout: account for offset and vertical packing
+        canvas.width = dimensions.width * cellSize + cellSize / 2; // Extra half for offset
+        canvas.height = cellSize + (dimensions.height - 1) * cellSize * HEX_VERTICAL_FACTOR;
+    } else {
+        canvas.width = dimensions.width * cellSize;
+        canvas.height = dimensions.height * cellSize;
+    }
     
     // Draw each cell
     const imageCache = new Map();
-    let loadedImages = 0;
-    const totalImages = new Set(grid.flat().map(cell => cell.beercapImage)).size;
     
     // Pre-load all unique images
     const uniqueImages = [...new Set(grid.flat().filter(cell => cell.beercapImage).map(cell => cell.beercapImage))];
     
     if (uniqueImages.length === 0) {
         // No images, just draw colors
-        drawGridWithColors(ctx, grid, cellSize);
+        drawGridWithColors(ctx, grid, cellSize, isHex);
         return;
     }
     
@@ -410,66 +437,136 @@ function renderVisualPreview(grid, dimensions) {
             imageCache.set(imgData, img);
             loaded++;
             if (loaded === uniqueImages.length) {
-                drawGridWithImages(ctx, grid, cellSize, imageCache);
+                drawGridWithImages(ctx, grid, cellSize, imageCache, isHex);
             }
         };
         img.src = imgData;
     });
 }
 
-function drawGridWithColors(ctx, grid, cellSize) {
-    grid.forEach((row, rowIndex) => {
-        row.forEach((cell, colIndex) => {
-            const x = colIndex * cellSize;
-            const y = rowIndex * cellSize;
-            
-            ctx.fillStyle = rgbToHex(cell.beercapColor);
-            ctx.fillRect(x, y, cellSize, cellSize);
-            
-            // Draw border
-            ctx.strokeStyle = 'rgba(0,0,0,0.2)';
-            ctx.strokeRect(x, y, cellSize, cellSize);
-        });
-    });
+function getHexPosition(rowIndex, colIndex, cellSize) {
+    // Even rows (0, 2, 4...) are offset by half cell width
+    const xOffset = (rowIndex % 2 === 0) ? cellSize / 2 : 0;
+    const x = colIndex * cellSize + xOffset;
+    const y = rowIndex * cellSize * HEX_VERTICAL_FACTOR;
+    return { x, y };
 }
 
-function drawGridWithImages(ctx, grid, cellSize, imageCache) {
+function drawGridWithColors(ctx, grid, cellSize, isHex = false) {
     grid.forEach((row, rowIndex) => {
         row.forEach((cell, colIndex) => {
-            const x = colIndex * cellSize;
-            const y = rowIndex * cellSize;
+            let x, y;
             
-            if (cell.beercapImage && imageCache.has(cell.beercapImage)) {
-                ctx.drawImage(imageCache.get(cell.beercapImage), x, y, cellSize, cellSize);
+            if (isHex) {
+                const pos = getHexPosition(rowIndex, colIndex, cellSize);
+                x = pos.x;
+                y = pos.y;
             } else {
-                ctx.fillStyle = rgbToHex(cell.beercapColor);
-                ctx.fillRect(x, y, cellSize, cellSize);
+                x = colIndex * cellSize;
+                y = rowIndex * cellSize;
             }
             
-            // Draw subtle border
-            ctx.strokeStyle = 'rgba(0,0,0,0.1)';
-            ctx.strokeRect(x, y, cellSize, cellSize);
+            ctx.fillStyle = rgbToHex(cell.beercapColor);
+            
+            // Always draw circular caps (beercaps are round!)
+            ctx.beginPath();
+            ctx.arc(x + cellSize / 2, y + cellSize / 2, cellSize / 2 - 1, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+            ctx.stroke();
         });
     });
 }
 
-function renderReferenceGrid(grid, codes) {
+function drawGridWithImages(ctx, grid, cellSize, imageCache, isHex = false) {
+    grid.forEach((row, rowIndex) => {
+        row.forEach((cell, colIndex) => {
+            let x, y;
+            
+            if (isHex) {
+                const pos = getHexPosition(rowIndex, colIndex, cellSize);
+                x = pos.x;
+                y = pos.y;
+            } else {
+                x = colIndex * cellSize;
+                y = rowIndex * cellSize;
+            }
+            
+            if (isHex) {
+                // Clip to circle for hex layout
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(x + cellSize / 2, y + cellSize / 2, cellSize / 2 - 1, 0, Math.PI * 2);
+                ctx.clip();
+                
+                if (cell.beercapImage && imageCache.has(cell.beercapImage)) {
+                    ctx.drawImage(imageCache.get(cell.beercapImage), x, y, cellSize, cellSize);
+                } else {
+                    ctx.fillStyle = rgbToHex(cell.beercapColor);
+                    ctx.fillRect(x, y, cellSize, cellSize);
+                }
+                
+                ctx.restore();
+                
+                // Draw circular border
+                ctx.beginPath();
+                ctx.arc(x + cellSize / 2, y + cellSize / 2, cellSize / 2 - 1, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+                ctx.stroke();
+            } else {
+                if (cell.beercapImage && imageCache.has(cell.beercapImage)) {
+                    ctx.drawImage(imageCache.get(cell.beercapImage), x, y, cellSize, cellSize);
+                } else {
+                    ctx.fillStyle = rgbToHex(cell.beercapColor);
+                    ctx.fillRect(x, y, cellSize, cellSize);
+                }
+                
+                // Draw subtle border
+                ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+                ctx.strokeRect(x, y, cellSize, cellSize);
+            }
+        });
+    });
+}
+
+function renderReferenceGrid(grid, codes, dimensions = {}) {
     const table = document.createElement('table');
-    table.className = 'reference-table';
+    const isHex = dimensions.layout === 'hex';
+    table.className = isHex ? 'reference-table hex-layout' : 'reference-table';
     
     // Add column numbers header
     const headerRow = document.createElement('tr');
-    headerRow.innerHTML = '<th></th>' + grid[0].map((_, i) => `<th>${i + 1}</th>`).join('');
+    if (isHex) {
+        // For hex, add empty spacer for offset indication
+        headerRow.innerHTML = '<th></th><th class="spacer"></th>' + grid[0].map((_, i) => `<th>${i + 1}</th>`).join('');
+    } else {
+        headerRow.innerHTML = '<th></th>' + grid[0].map((_, i) => `<th>${i + 1}</th>`).join('');
+    }
     table.appendChild(headerRow);
     
     grid.forEach((row, rowIndex) => {
         const tr = document.createElement('tr');
-        tr.innerHTML = `<th>${rowIndex + 1}</th>` + row.map(cell => {
+        const isOffsetRow = isHex && (rowIndex % 2 === 0);
+        
+        if (isOffsetRow) {
+            tr.className = 'offset-row';
+        }
+        
+        let rowHtml = `<th>${rowIndex + 1}</th>`;
+        
+        if (isHex) {
+            // Add spacer cell for offset rows
+            rowHtml += isOffsetRow ? '<td class="spacer offset"></td>' : '<td class="spacer"></td>';
+        }
+        
+        rowHtml += row.map(cell => {
             const code = codes.get(cell.beercapId) || '-';
             const bgColor = rgbToHex(cell.beercapColor);
             const textColor = getContrastColor(cell.beercapColor);
             return `<td style="background-color: ${bgColor}; color: ${textColor}" title="${cell.beercapName}">${code}</td>`;
         }).join('');
+        
+        tr.innerHTML = rowHtml;
         table.appendChild(tr);
     });
     
