@@ -580,6 +580,42 @@ h1, h2, h3, h4 {
     letter-spacing: 0.05em;
 }
 
+/* WASM Status Indicator */
+.wasm-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    margin-top: 0.75rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    transition: all 0.3s ease;
+}
+
+.wasm-status.loading {
+    background: rgba(255, 193, 7, 0.15);
+    color: #ffc107;
+}
+
+.wasm-status.ready {
+    background: rgba(40, 167, 69, 0.15);
+    color: #28a745;
+}
+
+.wasm-status.fallback {
+    background: rgba(108, 117, 125, 0.15);
+    color: var(--text-secondary);
+}
+
+.wasm-icon {
+    font-size: 0.85rem;
+}
+
+.wasm-text {
+    font-weight: 500;
+}
+
 /* Modal */
 .modal {
     position: fixed;

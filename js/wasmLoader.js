@@ -71,6 +71,7 @@ export function hungarianWasm(costMatrix) {
     }
     
     // Call the WASM function
+    console.log('Calling WASM function with:', flatMatrix, numRows, numCols);
     const result = wasmModule.hungarian_algorithm(flatMatrix, numRows, numCols);
     
     // Convert Int32Array to regular array

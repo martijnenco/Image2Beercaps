@@ -3,6 +3,7 @@
 import { getBeercaps, saveBeercaps, addBeercap, updateBeercap, deleteBeercap, generateId, getTotalBeercapCount } from './storage.js';
 import { extractAverageColor, rgbToHex, getContrastColor } from './colorUtils.js';
 import { calculateGridDimensions, generateMosaic, generateMosaicOptimized, createBeercapCodes, gridToCSV, generateLegend, HEX_VERTICAL_FACTOR } from './gridGenerator.js';
+import { initWasm, isWasmReady } from './wasmLoader.js';
 
 // Application state
 let targetImage = null;
@@ -51,6 +52,31 @@ function init() {
     loadSavedTargetImage();
     setupEventListeners();
     updateTotalCaps();
+    updateWasmStatus();
+}
+
+// Update WASM status indicator
+async function updateWasmStatus() {
+    const statusEl = document.getElementById('wasm-status');
+    if (!statusEl) return;
+    
+    const iconEl = statusEl.querySelector('.wasm-icon');
+    const textEl = statusEl.querySelector('.wasm-text');
+    
+    // Wait for WASM to finish loading
+    await initWasm();
+    
+    if (isWasmReady()) {
+        statusEl.classList.remove('loading', 'fallback');
+        statusEl.classList.add('ready');
+        iconEl.textContent = '⚡';
+        textEl.textContent = 'WASM Accelerated';
+    } else {
+        statusEl.classList.remove('loading', 'ready');
+        statusEl.classList.add('fallback');
+        iconEl.textContent = '🐢';
+        textEl.textContent = 'JavaScript Fallback';
+    }
 }
 
 // Load saved layout setting
