@@ -4,6 +4,7 @@ import { getBeercaps, saveBeercaps, addBeercap, updateBeercap, deleteBeercap, ge
 import { extractAverageColor, rgbToHex, getContrastColor } from './colorUtils.js';
 import { calculateGridDimensions, generateMosaic, generateMosaicOptimized, createBeercapCodes, gridToCSV, generateLegend, HEX_VERTICAL_FACTOR } from './gridGenerator.js';
 import { initWasm, isWasmReady, isThreaded, getThreadCount } from './wasmLoader.js';
+import { startCamera, stopCamera, scanImage, drawDetectionOverlay } from './scanner.js';
 
 // Application state
 let targetImage = null;
@@ -139,6 +140,10 @@ function setupEventListeners() {
     modalCancel.addEventListener('click', closeModal);
     beercapForm.addEventListener('submit', handleBeercapSubmit);
     clearLibraryBtn.addEventListener('click', handleClearLibrary);
+    
+    // Scan beercaps
+    document.getElementById('scan-beercaps-btn').addEventListener('click', openScanModal);
+    setupScanModal();
     
     // Close modal on backdrop click
     beercapModal.addEventListener('click', (e) => {
@@ -760,5 +765,280 @@ function handleDownloadCsv() {
     link.href = URL.createObjectURL(blob);
     link.click();
     URL.revokeObjectURL(link.href);
+}
+
+// ============================================
+// SCAN MODAL FUNCTIONALITY
+// ============================================
+
+let scanStream = null;
+let scanResults = null;
+
+function setupScanModal() {
+    const modal = document.getElementById('scan-modal');
+    const closeBtn = document.getElementById('scan-modal-close');
+    const photoBtn = document.getElementById('scan-photo-btn');
+    const cameraBtn = document.getElementById('scan-camera-btn');
+    const photoInput = document.getElementById('scan-photo-input');
+    const captureBtn = document.getElementById('scan-capture-btn');
+    const resetBtn = document.getElementById('scan-reset-btn');
+    const addBtn = document.getElementById('scan-add-btn');
+    
+    // Close modal
+    closeBtn.addEventListener('click', closeScanModal);
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeScanModal();
+    });
+    
+    // Toggle between photo and camera
+    photoBtn.addEventListener('click', () => {
+        photoBtn.classList.add('active');
+        cameraBtn.classList.remove('active');
+        document.getElementById('scan-photo-area').classList.remove('hidden');
+        document.getElementById('scan-camera-area').classList.add('hidden');
+        stopScanCamera();
+    });
+    
+    cameraBtn.addEventListener('click', async () => {
+        cameraBtn.classList.add('active');
+        photoBtn.classList.remove('active');
+        document.getElementById('scan-photo-area').classList.add('hidden');
+        document.getElementById('scan-camera-area').classList.remove('hidden');
+        await startScanCamera();
+    });
+    
+    // Photo upload
+    photoInput.addEventListener('change', handleScanPhotoUpload);
+    
+    // Camera capture
+    captureBtn.addEventListener('click', handleCameraCapture);
+    
+    // Reset
+    resetBtn.addEventListener('click', resetScanModal);
+    
+    // Add to library
+    addBtn.addEventListener('click', addScannedCapsToLibrary);
+}
+
+function openScanModal() {
+    const modal = document.getElementById('scan-modal');
+    modal.classList.add('active');
+    resetScanModal();
+}
+
+function closeScanModal() {
+    const modal = document.getElementById('scan-modal');
+    modal.classList.remove('active');
+    stopScanCamera();
+    scanResults = null;
+}
+
+async function startScanCamera() {
+    const video = document.getElementById('scan-video');
+    try {
+        scanStream = await startCamera(video);
+    } catch (error) {
+        alert('Could not access camera. Please check permissions.');
+    }
+}
+
+function stopScanCamera() {
+    if (scanStream) {
+        const video = document.getElementById('scan-video');
+        stopCamera(video);
+        scanStream = null;
+    }
+}
+
+async function handleScanPhotoUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const img = new Image();
+    img.onload = async () => {
+        await processScanImage(img);
+    };
+    img.src = URL.createObjectURL(file);
+}
+
+async function handleCameraCapture() {
+    const video = document.getElementById('scan-video');
+    if (!video.srcObject) return;
+    
+    // Create canvas from video frame
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0);
+    
+    // Stop camera
+    stopScanCamera();
+    
+    // Process the captured image
+    await processScanImage(canvas);
+}
+
+async function processScanImage(imageSource) {
+    const progressDiv = document.getElementById('scan-progress');
+    const progressFill = document.getElementById('scan-progress-fill');
+    const progressText = document.getElementById('scan-progress-text');
+    const previewArea = document.getElementById('scan-preview-area');
+    const previewCanvas = document.getElementById('scan-canvas');
+    const photoArea = document.getElementById('scan-photo-area');
+    const cameraArea = document.getElementById('scan-camera-area');
+    
+    // Show progress
+    progressDiv.classList.remove('hidden');
+    photoArea.classList.add('hidden');
+    cameraArea.classList.add('hidden');
+    
+    const updateProgress = (message, percent) => {
+        progressFill.style.width = `${percent}%`;
+        progressText.textContent = message;
+    };
+    
+    try {
+        // Scan the image
+        scanResults = await scanImage(imageSource, {
+            minRadius: 15,
+            maxRadius: 80,
+            similarityThreshold: 0.75
+        }, updateProgress);
+        
+        // Show preview with detections
+        const ctx = previewCanvas.getContext('2d');
+        previewCanvas.width = scanResults.sourceCanvas.width;
+        previewCanvas.height = scanResults.sourceCanvas.height;
+        ctx.drawImage(scanResults.sourceCanvas, 0, 0);
+        
+        // Draw detection overlay
+        drawDetectionOverlay(previewCanvas, scanResults.circles, scanResults.clusters);
+        
+        // Update UI
+        document.getElementById('scan-circle-count').textContent = scanResults.circles.length;
+        previewArea.classList.remove('hidden');
+        progressDiv.classList.add('hidden');
+        
+        // Show clusters
+        displayScanClusters(scanResults.clusters);
+        
+    } catch (error) {
+        console.error('Scan error:', error);
+        progressText.textContent = 'Error: ' + error.message;
+        progressDiv.classList.add('hidden');
+        photoArea.classList.remove('hidden');
+    }
+}
+
+function displayScanClusters(clusters) {
+    const resultsDiv = document.getElementById('scan-results');
+    const clustersDiv = document.getElementById('scan-clusters');
+    const uniqueCount = document.getElementById('scan-unique-count');
+    const addBtn = document.getElementById('scan-add-btn');
+    
+    uniqueCount.textContent = clusters.length;
+    clustersDiv.innerHTML = '';
+    
+    if (clusters.length === 0) {
+        clustersDiv.innerHTML = '<p class="scan-hint">No beercaps detected. Try a photo with better lighting and contrast.</p>';
+        resultsDiv.classList.remove('hidden');
+        addBtn.disabled = true;
+        return;
+    }
+    
+    clusters.forEach((cluster, idx) => {
+        const item = document.createElement('div');
+        item.className = 'scan-cluster-item selected';
+        item.dataset.clusterId = cluster.id;
+        
+        const colorHex = rgbToHex(cluster.color);
+        
+        item.innerHTML = `
+            <img src="${cluster.imageDataUrl}" alt="Cap ${idx + 1}" class="scan-cluster-image">
+            <span class="scan-cluster-count">×${cluster.count}</span>
+            <div class="scan-cluster-color" style="background: ${colorHex}"></div>
+        `;
+        
+        item.addEventListener('click', () => {
+            item.classList.toggle('selected');
+            updateAddButtonState();
+        });
+        
+        clustersDiv.appendChild(item);
+    });
+    
+    resultsDiv.classList.remove('hidden');
+    addBtn.disabled = false;
+}
+
+function updateAddButtonState() {
+    const selected = document.querySelectorAll('.scan-cluster-item.selected');
+    const addBtn = document.getElementById('scan-add-btn');
+    addBtn.disabled = selected.length === 0;
+    addBtn.textContent = `Add ${selected.length} to Library`;
+}
+
+function resetScanModal() {
+    const photoArea = document.getElementById('scan-photo-area');
+    const cameraArea = document.getElementById('scan-camera-area');
+    const previewArea = document.getElementById('scan-preview-area');
+    const progressDiv = document.getElementById('scan-progress');
+    const resultsDiv = document.getElementById('scan-results');
+    const photoInput = document.getElementById('scan-photo-input');
+    const addBtn = document.getElementById('scan-add-btn');
+    const photoBtn = document.getElementById('scan-photo-btn');
+    const cameraBtn = document.getElementById('scan-camera-btn');
+    
+    // Reset to photo mode
+    photoBtn.classList.add('active');
+    cameraBtn.classList.remove('active');
+    photoArea.classList.remove('hidden');
+    cameraArea.classList.add('hidden');
+    previewArea.classList.add('hidden');
+    progressDiv.classList.add('hidden');
+    resultsDiv.classList.add('hidden');
+    
+    photoInput.value = '';
+    addBtn.disabled = true;
+    addBtn.textContent = 'Add All to Library';
+    scanResults = null;
+    
+    stopScanCamera();
+}
+
+async function addScannedCapsToLibrary() {
+    if (!scanResults) return;
+    
+    const selectedItems = document.querySelectorAll('.scan-cluster-item.selected');
+    const selectedIds = new Set(Array.from(selectedItems).map(el => parseInt(el.dataset.clusterId)));
+    
+    let addedCount = 0;
+    
+    for (const cluster of scanResults.clusters) {
+        if (!selectedIds.has(cluster.id)) continue;
+        
+        const beercap = {
+            id: generateId(),
+            name: `Scanned Cap ${addedCount + 1}`,
+            color: cluster.color,
+            imageData: cluster.imageDataUrl,
+            quantity: cluster.count
+        };
+        
+        addBeercap(beercap);
+        addedCount++;
+    }
+    
+    // Refresh the library display
+    loadBeercapLibrary();
+    updateTotalCaps();
+    updateGridInfo();
+    
+    // Close modal
+    closeScanModal();
+    
+    // Show success message
+    alert(`Added ${addedCount} beercap types to your library!`);
 }
 

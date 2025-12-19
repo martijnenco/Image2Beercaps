@@ -21,6 +21,7 @@
 ## Features
 
 - **Beercap Library Management** — Upload photos of your beercaps, auto-extract their average colors, and track quantities
+- **📷 Beercap Scanner** — Photograph multiple caps at once; auto-detect, cluster, and count duplicates
 - **Smart Color Matching** — Uses perceptually-weighted color distance for better human-eye matching
 - **Global Optimization** — Hungarian algorithm finds the optimal beercap placement across the entire mosaic
 - **Multi-threaded WASM** — Rust/WebAssembly with Rayon for blazing fast parallel computation
@@ -45,7 +46,43 @@
 ```
 
 ### 1. Build Your Beercap Library
+
+**Option A: Add Manually**  
 Upload photos of each unique beercap you have. The app automatically extracts the dominant color using center-weighted sampling. Set the quantity you have available for each type.
+
+**Option B: Scan Multiple Caps at Once**  
+Use the **📷 Scan** feature to photograph many beercaps spread on a table:
+
+```
+┌───────────────────────────────────────────────┐
+│  📷 Photo of caps on table                    │
+│                                               │
+│    ⚪ ⚪ ⚪ ⚪ ⚪                             │
+│    ⚪ ⚪ ⚪ ⚪ ⚪                             │
+│    ⚪ ⚪ ⚪ ⚪ ⚪                             │
+│                                               │
+└───────────────────────────────────────────────┘
+              ↓ Automatic Detection
+┌───────────────────────────────────────────────┐
+│  Detected: 15 caps → 4 unique types           │
+│                                               │
+│  [Cap A ×5] [Cap B ×4] [Cap C ×3] [Cap D ×3]  │
+│                                               │
+│  [Add All to Library]                         │
+└───────────────────────────────────────────────┘
+```
+
+The scanner uses:
+- **Circle detection** to find individual caps
+- **Color histogram matching** to identify duplicates
+- **Automatic clustering** to group identical caps and count quantities
+- **Color extraction** to get each cap's average color
+
+**Tips for best scanning results:**
+- Use a contrasting background (dark caps on light surface, or vice versa)
+- Spread caps evenly with some space between them
+- Use good, even lighting to avoid shadows
+- Keep caps flat (not overlapping)
 
 ### 2. Upload Target Image
 Choose the image you want to recreate as a beercap mosaic. The app calculates the optimal grid size based on your total available caps and the image's aspect ratio.
@@ -155,6 +192,7 @@ image2beercaps/
 │   ├── app.js          # UI logic and event handling
 │   ├── colorUtils.js   # Color extraction & matching
 │   ├── gridGenerator.js # Mosaic generation (uses WASM)
+│   ├── scanner.js      # Beercap photo detection & clustering
 │   ├── wasmLoader.js   # WASM module loader with fallback
 │   └── storage.js      # LocalStorage persistence
 ├── wasm/
@@ -192,6 +230,8 @@ Works in all modern browsers:
 | Color Extraction | Canvas API with center-weighted averaging |
 | Color Distance | Weighted Euclidean (perceptual) |
 | Optimization | Hungarian/Kuhn-Munkres Algorithm |
+| Cap Detection | Edge-based circle detection (Sobel + Hough-like) |
+| Similarity Clustering | Color histogram comparison (Bhattacharyya) |
 | WASM Runtime | Rust + wasm-bindgen |
 | Multi-threading | Rayon + wasm-bindgen-rayon |
 | Storage | Browser LocalStorage |

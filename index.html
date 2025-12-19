@@ -29,6 +29,7 @@
                             Total: <strong id="total-caps">0</strong> caps
                         </span>
                         <button id="add-beercap-btn" class="btn btn-primary btn-sm">+ Add</button>
+                        <button id="scan-beercaps-btn" class="btn btn-secondary btn-sm">📷 Scan</button>
                         <button id="clear-library-btn" class="btn btn-danger btn-sm">Clear</button>
                     </div>
                 </div>
@@ -187,6 +188,75 @@
         </div>
     </div>
 
+    <!-- Scan Beercaps Modal -->
+    <div id="scan-modal" class="modal scan-modal">
+        <div class="modal-content scan-modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Scan Beercaps</h3>
+                <button id="scan-modal-close" class="modal-close">&times;</button>
+            </div>
+            
+            <div class="scan-body">
+                <!-- Input selection -->
+                <div class="scan-input-toggle">
+                    <button id="scan-photo-btn" class="scan-toggle-btn active">
+                        <span>📷</span> Upload Photo
+                    </button>
+                    <button id="scan-camera-btn" class="scan-toggle-btn">
+                        <span>🎥</span> Use Camera
+                    </button>
+                </div>
+                
+                <!-- Photo upload area -->
+                <div id="scan-photo-area" class="scan-area">
+                    <input type="file" id="scan-photo-input" accept="image/*" hidden>
+                    <label for="scan-photo-input" class="scan-upload-label">
+                        <div class="scan-upload-icon">🖼️</div>
+                        <p>Click to upload a photo of your beercaps</p>
+                        <p class="scan-hint">Spread caps on a contrasting background for best results</p>
+                    </label>
+                </div>
+                
+                <!-- Camera area -->
+                <div id="scan-camera-area" class="scan-area hidden">
+                    <video id="scan-video" autoplay playsinline></video>
+                    <button id="scan-capture-btn" class="btn btn-primary">📸 Capture</button>
+                </div>
+                
+                <!-- Preview with detections -->
+                <div id="scan-preview-area" class="scan-area hidden">
+                    <canvas id="scan-canvas"></canvas>
+                    <div class="scan-detection-info">
+                        <span id="scan-circle-count">0</span> caps detected
+                    </div>
+                </div>
+                
+                <!-- Detection progress -->
+                <div id="scan-progress" class="scan-progress hidden">
+                    <div class="progress-bar">
+                        <div id="scan-progress-fill" class="progress-fill"></div>
+                    </div>
+                    <div id="scan-progress-text" class="progress-text">Analyzing...</div>
+                </div>
+                
+                <!-- Clustered results -->
+                <div id="scan-results" class="scan-results hidden">
+                    <h4>Detected Unique Caps (<span id="scan-unique-count">0</span>)</h4>
+                    <div id="scan-clusters" class="scan-clusters"></div>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button id="scan-reset-btn" class="btn btn-secondary">Reset</button>
+                <button id="scan-add-btn" class="btn btn-primary" disabled>Add All to Library</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TensorFlow.js for beercap detection -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+    
     <script type="module" src="js/app.js"></script>
 </body>
 </html>
