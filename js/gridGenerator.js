@@ -1,15 +1,40 @@
 // Grid calculation and mosaic generation logic
 
 import { getRegionAverageColor, findBestMatch, colorDistance } from './colorUtils.js';
+import { initWasm, hungarianWasm, isWasmReady } from './wasmLoader.js';
+
+// Initialize WASM on module load
+let wasmInitialized = false;
+initWasm().then(success => {
+    wasmInitialized = success;
+});
 
 /**
- * Hungarian Algorithm (Kuhn-Munkres) for optimal assignment
+ * Hungarian Algorithm - tries WASM first, falls back to JavaScript
+ * @param {number[][]} costMatrix - 2D cost matrix
+ * @returns {number[]} Assignment array where result[i] = j means worker i is assigned to job j
+ */
+export function hungarianAlgorithm(costMatrix) {
+    // Try WASM implementation first (much faster)
+    if (isWasmReady()) {
+        const result = hungarianWasm(costMatrix);
+        if (result !== null) {
+            return result;
+        }
+    }
+    
+    // Fall back to JavaScript implementation
+    return hungarianAlgorithmJS(costMatrix);
+}
+
+/**
+ * Hungarian Algorithm (Kuhn-Munkres) for optimal assignment - JavaScript fallback
  * Finds the minimum cost assignment between workers (cells) and jobs (beercap slots)
  * 
  * @param {number[][]} costMatrix - 2D cost matrix where costMatrix[i][j] is the cost of assigning job j to worker i
  * @returns {number[]} Assignment array where result[i] = j means worker i is assigned to job j
  */
-export function hungarianAlgorithm(costMatrix) {
+function hungarianAlgorithmJS(costMatrix) {
     const n = costMatrix.length;
     const m = costMatrix[0].length;
     

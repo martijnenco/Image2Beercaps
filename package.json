@@ -3,9 +3,10 @@
   "version": "1.0.0",
   "description": "Convert images to beercap mosaic instructions",
   "scripts": {
-    "dev": "npx serve ."
+    "dev": "npx serve .",
+    "build:wasm": "cd wasm && wasm-pack build --target web --out-dir pkg",
+    "build": "npm run build:wasm"
   },
   "keywords": ["beercap", "mosaic", "image-processing"],
   "license": "No commercial use"
 }
-
