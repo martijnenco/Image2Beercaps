@@ -512,6 +512,66 @@ h1, h2, h3, h4 {
     padding-top: 1rem;
 }
 
+/* Progress Modal */
+.progress-modal .modal-content {
+    max-width: 400px;
+}
+
+.progress-modal-content {
+    padding: 2.5rem;
+    text-align: center;
+}
+
+.progress-modal-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.progress-modal-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 1.5rem;
+}
+
+.progress-bar-container {
+    margin-bottom: 1rem;
+}
+
+.progress-bar {
+    height: 12px;
+    background: var(--bg-primary);
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+
+.progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+    border-radius: 6px;
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+}
+
+.progress-percent {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--accent-primary);
+}
+
 .btn-generate {
     width: 100%;
     padding: 1rem;

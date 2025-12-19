@@ -401,13 +401,24 @@ async function handleGenerateMosaic() {
         return;
     }
     
-    // Show loading state
-    generateBtn.textContent = 'Optimizing...';
-    generateBtn.disabled = true;
+    // Get progress modal elements
+    const progressModal = document.getElementById('progress-modal');
+    const progressFill = document.getElementById('progress-fill');
+    const progressText = document.getElementById('progress-text');
+    const progressPercent = document.getElementById('progress-percent');
     
-    // Progress callback to update button text
+    // Show loading state
+    generateBtn.disabled = true;
+    progressModal.classList.add('active');
+    progressFill.style.width = '0%';
+    progressText.textContent = 'Initializing...';
+    progressPercent.textContent = '0%';
+    
+    // Progress callback to update progress bar
     const updateProgress = (message, percent) => {
-        generateBtn.textContent = `${message} (${percent}%)`;
+        progressFill.style.width = `${percent}%`;
+        progressText.textContent = message;
+        progressPercent.textContent = `${percent}%`;
     };
     
     // Use setTimeout to allow UI to update, then run async
@@ -423,7 +434,7 @@ async function handleGenerateMosaic() {
             );
             
             // Use optimized algorithm for global color matching
-            const result = generateMosaicOptimized(targetImage, beercaps, dimensions, updateProgress);
+            const result = await generateMosaicOptimized(targetImage, beercaps, dimensions, updateProgress);
             currentMosaic = result;
             beercapCodes = createBeercapCodes(beercaps);
             
@@ -439,12 +450,15 @@ async function handleGenerateMosaic() {
             // Enable export buttons
             downloadPngBtn.disabled = false;
             downloadCsvBtn.disabled = false;
+            
+            // Hide progress modal
+            progressModal.classList.remove('active');
         } catch (error) {
             console.error('Error generating mosaic:', error);
             alert('Error generating mosaic. Please try again.');
         } finally {
-            generateBtn.textContent = 'Generate Mosaic';
             generateBtn.disabled = false;
+            progressModal.classList.remove('active');
         }
     }, 50);
 }

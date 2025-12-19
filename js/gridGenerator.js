@@ -295,9 +295,11 @@ export function generateMosaic(targetImage, beercaps, gridDimensions) {
  * @param {Array} beercaps - Array of beercap objects with color and quantity
  * @param {Object} gridDimensions - Grid dimensions {width, height}
  * @param {Function} progressCallback - Optional callback for progress updates
- * @returns {Object} Mosaic result {grid, usageStats}
+ * @returns {Promise<Object>} Mosaic result {grid, usageStats}
  */
-export function generateMosaicOptimized(targetImage, beercaps, gridDimensions, progressCallback = null) {
+export async function generateMosaicOptimized(targetImage, beercaps, gridDimensions, progressCallback = null) {
+    // Helper to yield control to the browser for UI updates
+    const yieldToUI = () => new Promise(resolve => setTimeout(resolve, 0));
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     
@@ -320,7 +322,10 @@ export function generateMosaicOptimized(targetImage, beercaps, gridDimensions, p
     const numCells = gridDimensions.width * gridDimensions.height;
     
     // Step 1: Extract target colors for all cells
-    if (progressCallback) progressCallback('Analyzing image colors...', 10);
+    if (progressCallback) {
+        progressCallback('Analyzing image colors...', 10);
+        await yieldToUI();
+    }
     
     const cellColors = [];
     for (let row = 0; row < gridDimensions.height; row++) {
@@ -358,7 +363,10 @@ export function generateMosaicOptimized(targetImage, beercaps, gridDimensions, p
     }
     
     // Step 2: Expand beercap inventory into individual slots
-    if (progressCallback) progressCallback('Expanding inventory...', 20);
+    if (progressCallback) {
+        progressCallback('Expanding inventory...', 20);
+        await yieldToUI();
+    }
     
     const capSlots = [];
     beercaps.forEach(beercap => {
@@ -378,7 +386,10 @@ export function generateMosaicOptimized(targetImage, beercaps, gridDimensions, p
     }
     
     // Step 3: Build cost matrix
-    if (progressCallback) progressCallback('Building cost matrix...', 30);
+    if (progressCallback) {
+        progressCallback('Building cost matrix...', 30);
+        await yieldToUI();
+    }
     
     const costMatrix = [];
     for (let i = 0; i < numCells; i++) {
@@ -389,12 +400,18 @@ export function generateMosaicOptimized(targetImage, beercaps, gridDimensions, p
     }
     
     // Step 4: Run Hungarian algorithm
-    if (progressCallback) progressCallback('Optimizing assignments...', 50);
+    if (progressCallback) {
+        progressCallback('Optimizing assignments...', 50);
+        await yieldToUI();
+    }
     
     const assignments = hungarianAlgorithm(costMatrix);
     
     // Step 5: Build the grid from assignments
-    if (progressCallback) progressCallback('Building mosaic grid...', 80);
+    if (progressCallback) {
+        progressCallback('Building mosaic grid...', 80);
+        await yieldToUI();
+    }
     
     // Track usage per beercap
     const usageCount = new Map();
@@ -437,7 +454,10 @@ export function generateMosaicOptimized(targetImage, beercaps, gridDimensions, p
     }
     
     // Step 6: Calculate usage statistics
-    if (progressCallback) progressCallback('Calculating statistics...', 95);
+    if (progressCallback) {
+        progressCallback('Calculating statistics...', 95);
+        await yieldToUI();
+    }
     
     const usageStats = {
         totalCells: numCells,
@@ -465,7 +485,10 @@ export function generateMosaicOptimized(targetImage, beercaps, gridDimensions, p
     usageStats.totalColorError = totalError;
     usageStats.avgColorError = totalError / numCells;
     
-    if (progressCallback) progressCallback('Complete!', 100);
+    if (progressCallback) {
+        progressCallback('Complete!', 100);
+        await yieldToUI();
+    }
     
     return { grid, usageStats };
 }
