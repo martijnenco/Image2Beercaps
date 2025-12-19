@@ -306,6 +306,29 @@ h1, h2, h3, h4 {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    margin: -0.25rem -0.5rem;
+    border-radius: 4px;
+    transition: background-color 0.15s;
+}
+
+.beercap-name:hover {
+    background: rgba(255, 138, 0, 0.15);
+}
+
+.beercap-name-input {
+    font-size: inherit;
+    font-weight: 500;
+    font-family: inherit;
+    color: var(--text-primary);
+    background: var(--bg-primary);
+    border: 2px solid var(--accent-primary);
+    border-radius: 4px;
+    padding: 0.25rem 0.5rem;
+    margin: -0.25rem -0.5rem;
+    width: calc(100% + 1rem);
+    outline: none;
 }
 
 .beercap-details {

@@ -223,7 +223,7 @@ function renderBeercapList(beercaps) {
         <div class="beercap-item" data-id="${beercap.id}">
             <img src="${beercap.imageData}" alt="${beercap.name}" class="beercap-thumbnail">
             <div class="beercap-info">
-                <span class="beercap-name">${beercap.name}</span>
+                <span class="beercap-name" data-id="${beercap.id}" title="Click to edit">${beercap.name}</span>
                 <div class="beercap-details">
                     <span class="beercap-color" style="background-color: ${rgbToHex(beercap.color)}"></span>
                     <span class="beercap-hex">${rgbToHex(beercap.color)}</span>
@@ -256,6 +256,45 @@ function renderBeercapList(beercaps) {
     });
     beercapList.querySelectorAll('.delete-btn').forEach(btn => {
         btn.addEventListener('click', () => handleDeleteBeercap(btn.dataset.id));
+    });
+    
+    // Add click-to-edit for names
+    beercapList.querySelectorAll('.beercap-name').forEach(nameEl => {
+        nameEl.addEventListener('click', () => startEditName(nameEl));
+    });
+}
+
+function startEditName(nameEl) {
+    const id = nameEl.dataset.id;
+    const currentName = nameEl.textContent;
+    
+    // Create input element
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'beercap-name-input';
+    input.value = currentName;
+    
+    // Replace span with input
+    nameEl.replaceWith(input);
+    input.focus();
+    input.select();
+    
+    // Save on blur or Enter
+    const saveName = () => {
+        const newName = input.value.trim() || currentName;
+        updateBeercap(id, { name: newName });
+        loadBeercapLibrary();
+    };
+    
+    input.addEventListener('blur', saveName);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            input.blur();
+        } else if (e.key === 'Escape') {
+            input.value = currentName;
+            input.blur();
+        }
     });
 }
 
