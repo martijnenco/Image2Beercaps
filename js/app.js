@@ -941,8 +941,8 @@ async function processScanImage(imageSource) {
         // Scan the image
         scanResults = await scanImage(imageSource, {
             minRadius: 15,
-            maxRadius: 80,
-            similarityThreshold: 0.99 // Strict threshold to keep unique caps separate
+            maxRadius: 40,
+            matchThreshold: 0.35 // ORB feature matching threshold (higher = stricter)
         }, updateProgress);
         
         // Show preview with detections

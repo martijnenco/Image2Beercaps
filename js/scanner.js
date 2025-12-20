@@ -295,32 +295,109 @@ function rgbToHsv(r, g, b) {
 }
 
 /**
- * Compute similarity between two histograms (0-1, 1 = identical)
- * Uses a combination of histogram intersection and chi-squared distance
+ * Extract ORB features from a cap image using OpenCV
+ * ORB is rotation and scale invariant, robust to lighting changes
  */
-export function histogramSimilarity(hist1, hist2) {
-    if (hist1.length !== hist2.length) return 0;
+export function extractORBFeatures(canvas) {
+    if (!isOpenCVReady()) {
+        throw new Error('OpenCV is required for feature extraction');
+    }
     
-    // Histogram intersection (sum of minimums)
-    let intersection = 0;
-    let chiSquared = 0;
+    // Read canvas into OpenCV Mat
+    const src = cv.imread(canvas);
+    const gray = new cv.Mat();
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
     
-    for (let i = 0; i < hist1.length; i++) {
-        intersection += Math.min(hist1[i], hist2[i]);
-        
-        // Chi-squared distance (penalizes differences more strongly)
-        const sum = hist1[i] + hist2[i];
-        if (sum > 0) {
-            chiSquared += ((hist1[i] - hist2[i]) ** 2) / sum;
+    // Apply circular mask to focus on the cap (ignore corners)
+    const mask = new cv.Mat.zeros(gray.rows, gray.cols, cv.CV_8UC1);
+    const center = new cv.Point(gray.cols / 2, gray.rows / 2);
+    const radius = Math.min(gray.cols, gray.rows) / 2 - 2;
+    cv.circle(mask, center, radius, new cv.Scalar(255), -1);
+    
+    // Create ORB detector with more features for better matching
+    const orb = new cv.ORB(500); // 500 features max
+    
+    // Detect keypoints and compute descriptors
+    const keypoints = new cv.KeyPointVector();
+    const descriptors = new cv.Mat();
+    
+    orb.detectAndCompute(gray, mask, keypoints, descriptors);
+    
+    // Cleanup
+    src.delete();
+    gray.delete();
+    mask.delete();
+    orb.delete();
+    
+    return { keypoints, descriptors };
+}
+
+/**
+ * Match ORB features between two caps
+ * Returns a similarity score based on number of good matches
+ */
+export function matchORBFeatures(features1, features2) {
+    if (!isOpenCVReady()) {
+        throw new Error('OpenCV is required for feature matching');
+    }
+    
+    const { descriptors: desc1 } = features1;
+    const { descriptors: desc2 } = features2;
+    
+    // If either has no features, they can't be matched
+    if (desc1.rows === 0 || desc2.rows === 0) {
+        return 0;
+    }
+    
+    // Use BFMatcher with Hamming distance for ORB (binary descriptors)
+    const bf = new cv.BFMatcher(cv.NORM_HAMMING, false);
+    
+    // Find k=2 nearest matches for ratio test
+    const matches = new cv.DMatchVectorVector();
+    bf.knnMatch(desc1, desc2, matches, 2);
+    
+    // Apply Lowe's ratio test to filter good matches
+    let goodMatches = 0;
+    const ratioThreshold = 0.75;
+    
+    for (let i = 0; i < matches.size(); i++) {
+        const match = matches.get(i);
+        if (match.size() >= 2) {
+            const m = match.get(0);
+            const n = match.get(1);
+            if (m.distance < ratioThreshold * n.distance) {
+                goodMatches++;
+            }
         }
     }
     
-    // Combine both metrics: high intersection + low chi-squared = similar
-    // Chi-squared typically ranges from 0 (identical) to 2 (completely different)
-    const chiSimilarity = Math.max(0, 1 - chiSquared / 2);
+    // Cleanup
+    bf.delete();
+    matches.delete();
     
-    // Weight intersection more since it's more robust
-    return intersection * 0.6 + chiSimilarity * 0.4;
+    // Calculate similarity score based on number of good matches
+    // Normalize by the minimum number of features (so we compare fairly)
+    const minFeatures = Math.min(desc1.rows, desc2.rows);
+    const matchRatio = goodMatches / minFeatures;
+    
+    // Return a score between 0-1, with bonus for having many absolute matches
+    // More good matches = higher confidence
+    const absoluteScore = Math.min(1, goodMatches / 15); // 15+ matches = perfect
+    const ratioScore = matchRatio;
+    
+    return absoluteScore * 0.6 + ratioScore * 0.4;
+}
+
+/**
+ * Check if two caps are the same using ORB feature matching
+ * Handles rotation and lighting variations
+ */
+export function areCapsMatching(cap1Features, cap2Features, threshold = 0.35) {
+    const similarity = matchORBFeatures(cap1Features, cap2Features);
+    return {
+        isMatch: similarity >= threshold,
+        similarity
+    };
 }
 
 /**
@@ -363,66 +440,102 @@ export function computeAverageColor(canvas) {
 }
 
 /**
- * Cluster similar beercaps together
- * Uses stricter thresholds to avoid grouping different caps together
+ * Cluster similar beercaps together using ORB feature matching
+ * Robust to rotation and lighting variations
  */
-export function clusterCaps(caps, similarityThreshold = 0.99) {
+export function clusterCaps(caps, matchThreshold = 0.35) {
     if (caps.length === 0) return [];
     
-    // Compute histograms and average colors for all caps
-    const capsWithFeatures = caps.map(cap => {
-        const avgColor = computeAverageColor(cap.image);
-        return {
-            ...cap,
-            histogram: computeColorHistogram(cap.image),
-            avgColor
-        };
+    if (!isOpenCVReady()) {
+        console.error('OpenCV not ready for clustering');
+        return caps.map((cap, idx) => ({
+            representative: cap,
+            members: [cap],
+            color: computeAverageColor(cap.image)
+        }));
+    }
+    
+    console.log(`Clustering ${caps.length} caps using ORB feature matching...`);
+    
+    // Extract ORB features for all caps
+    const capsWithFeatures = caps.map((cap, idx) => {
+        try {
+            const features = extractORBFeatures(cap.image);
+            const avgColor = computeAverageColor(cap.image);
+            console.log(`Cap ${idx}: ${features.descriptors.rows} ORB features extracted`);
+            return {
+                ...cap,
+                features,
+                avgColor
+            };
+        } catch (error) {
+            console.warn(`Failed to extract features for cap ${idx}:`, error);
+            return {
+                ...cap,
+                features: null,
+                avgColor: computeAverageColor(cap.image)
+            };
+        }
     });
     
-    // Greedy clustering with stricter matching
+    // Greedy clustering using ORB matching
     const clusters = [];
     const assigned = new Set();
     
     for (let i = 0; i < capsWithFeatures.length; i++) {
         if (assigned.has(i)) continue;
         
+        const cap1 = capsWithFeatures[i];
         const cluster = {
-            representative: capsWithFeatures[i],
-            members: [capsWithFeatures[i]],
-            color: capsWithFeatures[i].avgColor
+            representative: cap1,
+            members: [cap1],
+            color: cap1.avgColor
         };
         assigned.add(i);
+        
+        // Skip matching if this cap has no features
+        if (!cap1.features || cap1.features.descriptors.rows === 0) {
+            clusters.push(cluster);
+            continue;
+        }
         
         // Find similar caps
         for (let j = i + 1; j < capsWithFeatures.length; j++) {
             if (assigned.has(j)) continue;
             
-            // Check histogram similarity
-            const histSimilarity = histogramSimilarity(
-                capsWithFeatures[i].histogram,
-                capsWithFeatures[j].histogram
-            );
+            const cap2 = capsWithFeatures[j];
             
-            // Also check average color similarity as a secondary filter
-            const colorDist = Math.sqrt(
-                (capsWithFeatures[i].avgColor.r - capsWithFeatures[j].avgColor.r) ** 2 +
-                (capsWithFeatures[i].avgColor.g - capsWithFeatures[j].avgColor.g) ** 2 +
-                (capsWithFeatures[i].avgColor.b - capsWithFeatures[j].avgColor.b) ** 2
-            );
-            const maxColorDist = Math.sqrt(3 * 255 * 255);
-            const colorSimilarity = 1 - (colorDist / maxColorDist);
+            // Skip if no features
+            if (!cap2.features || cap2.features.descriptors.rows === 0) {
+                continue;
+            }
             
-            // Both histogram AND color must be similar
-            const isSimilar = histSimilarity >= similarityThreshold && colorSimilarity >= similarityThreshold;
+            // Match using ORB features
+            const { isMatch, similarity } = areCapsMatching(cap1.features, cap2.features, matchThreshold);
             
-            if (isSimilar) {
-                cluster.members.push(capsWithFeatures[j]);
+            if (isMatch) {
+                console.log(`Caps ${i} and ${j} match with similarity ${similarity.toFixed(2)}`);
+                cluster.members.push(cap2);
                 assigned.add(j);
             }
         }
         
         clusters.push(cluster);
     }
+    
+    // Cleanup OpenCV objects
+    capsWithFeatures.forEach(cap => {
+        if (cap.features) {
+            try {
+                cap.features.keypoints.delete();
+                cap.features.descriptors.delete();
+            } catch (e) {
+                // Already deleted or invalid
+            }
+        }
+    });
+    
+    console.log(`Clustering complete: ${caps.length} caps -> ${clusters.length} unique types`);
     
     return clusters;
 }
@@ -432,9 +545,9 @@ export function clusterCaps(caps, similarityThreshold = 0.99) {
  */
 export async function scanImage(imageSource, options = {}, progressCallback = null) {
     const {
-        minRadius,
-        maxRadius,
-        similarityThreshold // Higher threshold to avoid false groupings
+        minRadius = 20,
+        maxRadius = 100,
+        matchThreshold = 0.35 // ORB feature matching threshold
     } = options;
     
     // Try to load OpenCV for better circle detection
@@ -478,8 +591,8 @@ export async function scanImage(imageSource, options = {}, progressCallback = nu
     
     if (progressCallback) progressCallback('Clustering similar caps...', 60);
     
-    // Cluster similar caps
-    const clusters = clusterCaps(caps, similarityThreshold);
+    // Cluster similar caps using ORB feature matching
+    const clusters = clusterCaps(caps, matchThreshold);
     
     if (progressCallback) progressCallback(`Found ${clusters.length} unique cap types`, 90);
     
