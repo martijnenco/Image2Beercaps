@@ -1358,3 +1358,48 @@ input[type="number"]::-webkit-outer-spin-button {
     margin-top: 0.5rem;
 }
 
+/* Footer */
+.app-footer {
+    margin-top: 3rem;
+    padding: 2rem 0;
+    border-top: 1px solid var(--border-color);
+    text-align: center;
+}
+
+.footer-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+.footer-text {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.sponsor-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1.25rem;
+    background: linear-gradient(135deg, #ffdd00 0%, #ff9500 100%);
+    color: #1a1a1a;
+    font-family: var(--font-main);
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-decoration: none;
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast);
+    box-shadow: 0 2px 8px rgba(255, 221, 0, 0.3);
+}
+
+.sponsor-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(255, 221, 0, 0.4);
+}
+
+.sponsor-btn .coffee-icon {
+    flex-shrink: 0;
+}
+
