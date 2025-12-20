@@ -68,8 +68,8 @@ const server = http.createServer((req, res) => {
         }
         
         // Set headers for SharedArrayBuffer support (required for WASM threads)
-        // res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-        // res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+        res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+        res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
         res.setHeader('Content-Type', contentType);
         res.setHeader('Cache-Control', 'no-cache');
         
@@ -85,8 +85,8 @@ server.listen(PORT, () => {
 
   Local:   http://localhost:${PORT}
 
-  // ✓ Cross-Origin-Opener-Policy: same-origin
-  // ✓ Cross-Origin-Embedder-Policy: require-corp
+  ✓ Cross-Origin-Opener-Policy: same-origin
+  ✓ Cross-Origin-Embedder-Policy: require-corp
   ✓ SharedArrayBuffer enabled (WASM threads ready)
 
   Press Ctrl+C to stop
