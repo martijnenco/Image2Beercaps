@@ -942,7 +942,7 @@ async function processScanImage(imageSource) {
         scanResults = await scanImage(imageSource, {
             minRadius: 15,
             maxRadius: 80,
-            similarityThreshold: 0.75
+            similarityThreshold: 0.99 // Strict threshold to keep unique caps separate
         }, updateProgress);
         
         // Show preview with detections

@@ -1,42 +1,65 @@
-// Beercap Scanner - Camera/Photo detection and clustering
+// Beercap Scanner - Camera/Photo detection and clustering using OpenCV.js
 
-let cocoModel = null;
-let isModelLoading = false;
-let modelLoadPromise = null;
+let opencvReady = false;
+let opencvLoadPromise = null;
 
 /**
- * Load COCO-SSD model for object detection
+ * Load OpenCV.js for circle detection
+ * Hosted locally to work with COEP headers
  */
-export async function loadModel() {
-    if (cocoModel) return cocoModel;
-    if (modelLoadPromise) return modelLoadPromise;
+export async function loadOpenCV() {
+    if (opencvReady) return true;
+    if (opencvLoadPromise) return opencvLoadPromise;
     
-    isModelLoading = true;
-    modelLoadPromise = (async () => {
-        try {
-            // Check if cocoSsd is available (loaded from CDN)
-            if (typeof cocoSsd === 'undefined') {
-                throw new Error('COCO-SSD model not loaded. Check script tags.');
-            }
-            cocoModel = await cocoSsd.load();
-            console.log('✓ COCO-SSD model loaded');
-            return cocoModel;
-        } catch (error) {
-            console.error('Failed to load COCO-SSD model:', error);
-            throw error;
-        } finally {
-            isModelLoading = false;
+    opencvLoadPromise = new Promise((resolve, reject) => {
+        // Check if already loaded
+        if (typeof cv !== 'undefined' && cv.Mat) {
+            opencvReady = true;
+            console.log('✓ OpenCV.js ready');
+            resolve(true);
+            return;
         }
-    })();
+        
+        // Load OpenCV.js from local vendor folder (same-origin works with COEP)
+        const script = document.createElement('script');
+        script.src = '/js/vendor/opencv.js';
+        script.async = true;
+        
+        script.onload = () => {
+            // OpenCV.js uses a callback when WASM is ready
+            if (typeof cv !== 'undefined') {
+                if (cv.Mat) {
+                    // Already initialized
+                    opencvReady = true;
+                    console.log('✓ OpenCV.js ready');
+                    resolve(true);
+                } else {
+                    cv['onRuntimeInitialized'] = () => {
+                        opencvReady = true;
+                        console.log('✓ OpenCV.js loaded and ready');
+                        resolve(true);
+                    };
+                }
+            } else {
+                reject(new Error('OpenCV.js loaded but cv is undefined'));
+            }
+        };
+        
+        script.onerror = () => {
+            reject(new Error('Failed to load OpenCV.js from /js/vendor/opencv.js'));
+        };
+        
+        document.head.appendChild(script);
+    });
     
-    return modelLoadPromise;
+    return opencvLoadPromise;
 }
 
 /**
- * Check if model is ready
+ * Check if OpenCV is ready
  */
-export function isModelReady() {
-    return cocoModel !== null;
+export function isOpenCVReady() {
+    return opencvReady && typeof cv !== 'undefined' && cv.Mat;
 }
 
 /**
@@ -84,98 +107,64 @@ export function captureFrame(videoElement) {
 }
 
 /**
- * Detect circular objects (beercaps) in an image using color-based circle detection
- * This is a simpler approach than full ML - looks for circular regions
+ * Detect circles using OpenCV.js Hough Circle Transform
  */
 export function detectCircles(imageCanvas, options = {}) {
     const {
         minRadius = 20,
         maxRadius = 150,
-        sensitivity = 0.3,
-        minDistance = 30
+        minDistance = null, // If null, defaults to minRadius * 2
+        cannyThreshold = 100,
+        accumulatorThreshold = 30
     } = options;
     
-    const ctx = imageCanvas.getContext('2d');
-    const imageData = ctx.getImageData(0, 0, imageCanvas.width, imageCanvas.height);
-    const { width, height, data } = imageData;
-    
-    // Convert to grayscale and detect edges
-    const gray = new Uint8Array(width * height);
-    const edges = new Uint8Array(width * height);
-    
-    // Grayscale conversion
-    for (let i = 0; i < width * height; i++) {
-        const idx = i * 4;
-        gray[i] = Math.round(0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2]);
+    if (!isOpenCVReady()) {
+        throw new Error('OpenCV.js is not loaded. Make sure /js/vendor/opencv.js exists.');
     }
     
-    // Simple edge detection (Sobel-like)
-    for (let y = 1; y < height - 1; y++) {
-        for (let x = 1; x < width - 1; x++) {
-            const idx = y * width + x;
-            const gx = -gray[idx - width - 1] + gray[idx - width + 1]
-                     - 2 * gray[idx - 1] + 2 * gray[idx + 1]
-                     - gray[idx + width - 1] + gray[idx + width + 1];
-            const gy = -gray[idx - width - 1] - 2 * gray[idx - width] - gray[idx - width + 1]
-                     + gray[idx + width - 1] + 2 * gray[idx + width] + gray[idx + width + 1];
-            edges[idx] = Math.min(255, Math.sqrt(gx * gx + gy * gy));
-        }
+    // Read image from canvas
+    const src = cv.imread(imageCanvas);
+    const gray = new cv.Mat();
+    const circles = new cv.Mat();
+    
+    // Convert to grayscale
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    
+    // Apply Gaussian blur to reduce noise
+    cv.GaussianBlur(gray, gray, new cv.Size(9, 9), 2, 2);
+    
+    // Detect circles using Hough Circle Transform
+    const dp = 1; // Inverse ratio of accumulator resolution
+    const minDist = minDistance || minRadius * 2; // Min distance between circle centers
+    
+    cv.HoughCircles(
+        gray,
+        circles,
+        cv.HOUGH_GRADIENT,
+        dp,
+        minDist,
+        cannyThreshold,     // Upper Canny threshold
+        accumulatorThreshold, // Accumulator threshold for circle centers
+        minRadius,
+        maxRadius
+    );
+    
+    // Convert result to our format
+    const result = [];
+    for (let i = 0; i < circles.cols; i++) {
+        const x = circles.data32F[i * 3];
+        const y = circles.data32F[i * 3 + 1];
+        const radius = circles.data32F[i * 3 + 2];
+        result.push({ x, y, radius, confidence: 1.0 });
     }
     
-    // Simple circle detection using accumulator
-    const circles = [];
-    const step = Math.max(5, Math.floor(minRadius / 3));
+    // Cleanup OpenCV matrices
+    src.delete();
+    gray.delete();
+    circles.delete();
     
-    // Scan for potential circle centers
-    for (let y = maxRadius; y < height - maxRadius; y += step) {
-        for (let x = maxRadius; x < width - maxRadius; x += step) {
-            // Check various radii
-            for (let r = minRadius; r <= maxRadius; r += 5) {
-                let edgeCount = 0;
-                let totalPoints = 0;
-                
-                // Sample points on circle circumference
-                const numSamples = Math.max(16, Math.floor(2 * Math.PI * r / 8));
-                for (let i = 0; i < numSamples; i++) {
-                    const angle = (2 * Math.PI * i) / numSamples;
-                    const px = Math.round(x + r * Math.cos(angle));
-                    const py = Math.round(y + r * Math.sin(angle));
-                    
-                    if (px >= 0 && px < width && py >= 0 && py < height) {
-                        totalPoints++;
-                        if (edges[py * width + px] > 50) {
-                            edgeCount++;
-                        }
-                    }
-                }
-                
-                const ratio = edgeCount / totalPoints;
-                if (ratio > sensitivity) {
-                    // Check if too close to existing circle
-                    let tooClose = false;
-                    for (const c of circles) {
-                        const dist = Math.sqrt((c.x - x) ** 2 + (c.y - y) ** 2);
-                        if (dist < minDistance) {
-                            tooClose = true;
-                            if (ratio > c.confidence) {
-                                c.x = x;
-                                c.y = y;
-                                c.radius = r;
-                                c.confidence = ratio;
-                            }
-                            break;
-                        }
-                    }
-                    
-                    if (!tooClose) {
-                        circles.push({ x, y, radius: r, confidence: ratio });
-                    }
-                }
-            }
-        }
-    }
-    
-    return circles;
+    console.log(`OpenCV detected ${result.length} circles`);
+    return result;
 }
 
 /**
@@ -201,61 +190,137 @@ export function extractCapImage(sourceCanvas, circle, size = 64) {
 }
 
 /**
- * Compute color histogram for an image
+ * Compute detailed color histogram with spatial regions for better cap differentiation
  */
-export function computeColorHistogram(canvas, bins = 8) {
+export function computeColorHistogram(canvas, bins = 16) {
     const ctx = canvas.getContext('2d');
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const { data, width, height } = imageData;
     
-    // Create histogram bins for R, G, B channels
-    const histR = new Array(bins).fill(0);
-    const histG = new Array(bins).fill(0);
-    const histB = new Array(bins).fill(0);
-    
-    const binSize = 256 / bins;
     const centerX = width / 2;
     const centerY = height / 2;
-    const maxDist = Math.sqrt(centerX * centerX + centerY * centerY);
+    const radius = Math.min(centerX, centerY);
     
+    // Create histogram bins for H, S, V channels (better for color differentiation)
+    const histH = new Array(bins).fill(0);
+    const histS = new Array(bins).fill(0);
+    const histV = new Array(bins).fill(0);
+    
+    // Also track spatial color distribution (center vs edge)
+    const histCenterH = new Array(bins).fill(0);
+    const histEdgeH = new Array(bins).fill(0);
+    
+    const binSize = 256 / bins;
     let totalWeight = 0;
+    let centerWeight = 0;
+    let edgeWeight = 0;
     
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
-            // Center-weighted sampling
             const dist = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
-            const weight = 1 - (dist / maxDist) * 0.5;
+            
+            // Only sample within circular region
+            if (dist > radius) continue;
             
             const idx = (y * width + x) * 4;
             const r = data[idx];
             const g = data[idx + 1];
             const b = data[idx + 2];
             
-            histR[Math.min(bins - 1, Math.floor(r / binSize))] += weight;
-            histG[Math.min(bins - 1, Math.floor(g / binSize))] += weight;
-            histB[Math.min(bins - 1, Math.floor(b / binSize))] += weight;
+            // Convert RGB to HSV for better color matching
+            const hsv = rgbToHsv(r, g, b);
             
+            const weight = 1;
             totalWeight += weight;
+            
+            histH[Math.min(bins - 1, Math.floor(hsv.h / binSize))] += weight;
+            histS[Math.min(bins - 1, Math.floor(hsv.s / binSize))] += weight;
+            histV[Math.min(bins - 1, Math.floor(hsv.v / binSize))] += weight;
+            
+            // Track spatial distribution
+            const isCenter = dist < radius * 0.5;
+            if (isCenter) {
+                histCenterH[Math.min(bins - 1, Math.floor(hsv.h / binSize))] += 1;
+                centerWeight += 1;
+            } else {
+                histEdgeH[Math.min(bins - 1, Math.floor(hsv.h / binSize))] += 1;
+                edgeWeight += 1;
+            }
         }
     }
     
-    // Normalize
-    const histogram = [...histR, ...histG, ...histB].map(v => v / totalWeight);
+    // Normalize all histograms
+    const normalizeHist = (hist, total) => hist.map(v => total > 0 ? v / total : 0);
+    
+    const histogram = [
+        ...normalizeHist(histH, totalWeight),
+        ...normalizeHist(histS, totalWeight),
+        ...normalizeHist(histV, totalWeight),
+        ...normalizeHist(histCenterH, centerWeight),
+        ...normalizeHist(histEdgeH, edgeWeight)
+    ];
+    
     return histogram;
 }
 
 /**
+ * Convert RGB to HSV color space
+ */
+function rgbToHsv(r, g, b) {
+    r /= 255;
+    g /= 255;
+    b /= 255;
+    
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const diff = max - min;
+    
+    let h = 0;
+    if (diff !== 0) {
+        if (max === r) {
+            h = ((g - b) / diff) % 6;
+        } else if (max === g) {
+            h = (b - r) / diff + 2;
+        } else {
+            h = (r - g) / diff + 4;
+        }
+        h = Math.round(h * 42.5); // Scale to 0-255
+        if (h < 0) h += 255;
+    }
+    
+    const s = max === 0 ? 0 : Math.round((diff / max) * 255);
+    const v = Math.round(max * 255);
+    
+    return { h, s, v };
+}
+
+/**
  * Compute similarity between two histograms (0-1, 1 = identical)
+ * Uses a combination of histogram intersection and chi-squared distance
  */
 export function histogramSimilarity(hist1, hist2) {
     if (hist1.length !== hist2.length) return 0;
     
-    // Bhattacharyya coefficient
-    let sum = 0;
+    // Histogram intersection (sum of minimums)
+    let intersection = 0;
+    let chiSquared = 0;
+    
     for (let i = 0; i < hist1.length; i++) {
-        sum += Math.sqrt(hist1[i] * hist2[i]);
+        intersection += Math.min(hist1[i], hist2[i]);
+        
+        // Chi-squared distance (penalizes differences more strongly)
+        const sum = hist1[i] + hist2[i];
+        if (sum > 0) {
+            chiSquared += ((hist1[i] - hist2[i]) ** 2) / sum;
+        }
     }
-    return sum;
+    
+    // Combine both metrics: high intersection + low chi-squared = similar
+    // Chi-squared typically ranges from 0 (identical) to 2 (completely different)
+    const chiSimilarity = Math.max(0, 1 - chiSquared / 2);
+    
+    // Weight intersection more since it's more robust
+    return intersection * 0.6 + chiSimilarity * 0.4;
 }
 
 /**
@@ -299,41 +364,59 @@ export function computeAverageColor(canvas) {
 
 /**
  * Cluster similar beercaps together
+ * Uses stricter thresholds to avoid grouping different caps together
  */
-export function clusterCaps(caps, similarityThreshold = 0.85) {
+export function clusterCaps(caps, similarityThreshold = 0.99) {
     if (caps.length === 0) return [];
     
-    // Compute histograms for all caps
-    const capsWithHist = caps.map(cap => ({
-        ...cap,
-        histogram: computeColorHistogram(cap.image)
-    }));
+    // Compute histograms and average colors for all caps
+    const capsWithFeatures = caps.map(cap => {
+        const avgColor = computeAverageColor(cap.image);
+        return {
+            ...cap,
+            histogram: computeColorHistogram(cap.image),
+            avgColor
+        };
+    });
     
-    // Greedy clustering
+    // Greedy clustering with stricter matching
     const clusters = [];
     const assigned = new Set();
     
-    for (let i = 0; i < capsWithHist.length; i++) {
+    for (let i = 0; i < capsWithFeatures.length; i++) {
         if (assigned.has(i)) continue;
         
         const cluster = {
-            representative: capsWithHist[i],
-            members: [capsWithHist[i]],
-            color: computeAverageColor(capsWithHist[i].image)
+            representative: capsWithFeatures[i],
+            members: [capsWithFeatures[i]],
+            color: capsWithFeatures[i].avgColor
         };
         assigned.add(i);
         
         // Find similar caps
-        for (let j = i + 1; j < capsWithHist.length; j++) {
+        for (let j = i + 1; j < capsWithFeatures.length; j++) {
             if (assigned.has(j)) continue;
             
-            const similarity = histogramSimilarity(
-                capsWithHist[i].histogram,
-                capsWithHist[j].histogram
+            // Check histogram similarity
+            const histSimilarity = histogramSimilarity(
+                capsWithFeatures[i].histogram,
+                capsWithFeatures[j].histogram
             );
             
-            if (similarity >= similarityThreshold) {
-                cluster.members.push(capsWithHist[j]);
+            // Also check average color similarity as a secondary filter
+            const colorDist = Math.sqrt(
+                (capsWithFeatures[i].avgColor.r - capsWithFeatures[j].avgColor.r) ** 2 +
+                (capsWithFeatures[i].avgColor.g - capsWithFeatures[j].avgColor.g) ** 2 +
+                (capsWithFeatures[i].avgColor.b - capsWithFeatures[j].avgColor.b) ** 2
+            );
+            const maxColorDist = Math.sqrt(3 * 255 * 255);
+            const colorSimilarity = 1 - (colorDist / maxColorDist);
+            
+            // Both histogram AND color must be similar
+            const isSimilar = histSimilarity >= similarityThreshold && colorSimilarity >= similarityThreshold;
+            
+            if (isSimilar) {
+                cluster.members.push(capsWithFeatures[j]);
                 assigned.add(j);
             }
         }
@@ -349,10 +432,14 @@ export function clusterCaps(caps, similarityThreshold = 0.85) {
  */
 export async function scanImage(imageSource, options = {}, progressCallback = null) {
     const {
-        minRadius = 20,
-        maxRadius = 100,
-        similarityThreshold = 0.8
+        minRadius,
+        maxRadius,
+        similarityThreshold // Higher threshold to avoid false groupings
     } = options;
+    
+    // Try to load OpenCV for better circle detection
+    if (progressCallback) progressCallback('Loading OpenCV...', 5);
+    await loadOpenCV();
     
     // Get canvas from source
     let canvas;
@@ -370,7 +457,8 @@ export async function scanImage(imageSource, options = {}, progressCallback = nu
         throw new Error('Invalid image source');
     }
     
-    if (progressCallback) progressCallback('Detecting circles...', 10);
+    const detectionMethod = isOpenCVReady() ? 'OpenCV Hough Transform' : 'edge detection';
+    if (progressCallback) progressCallback(`Detecting circles (${detectionMethod})...`, 10);
     
     // Detect circles
     const circles = detectCircles(canvas, { minRadius, maxRadius });
