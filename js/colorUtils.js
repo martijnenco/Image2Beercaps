@@ -196,3 +196,59 @@ export function getContrastColor(bgColor) {
     return luminance > 0.5 ? '#000000' : '#FFFFFF';
 }
 
+/**
+ * Maximum size for beercap images in storage
+ */
+const BEERCAP_MAX_SIZE = 64;
+
+/**
+ * Resize and compress an image to a maximum size for efficient storage
+ * Uses JPEG compression for photos to minimize storage space
+ * @param {string} imageDataUrl - Base64 data URL of the image
+ * @param {number} maxSize - Maximum width/height (default: 64)
+ * @param {number} quality - JPEG quality 0-1 (default: 0.85)
+ * @returns {Promise<string>} Compressed base64 data URL
+ */
+export function resizeAndCompressImage(imageDataUrl, maxSize = BEERCAP_MAX_SIZE, quality = 0.85) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Calculate new dimensions maintaining aspect ratio
+            let width = img.width;
+            let height = img.height;
+            
+            if (width > maxSize || height > maxSize) {
+                if (width > height) {
+                    height = Math.round(height * (maxSize / width));
+                    width = maxSize;
+                } else {
+                    width = Math.round(width * (maxSize / height));
+                    height = maxSize;
+                }
+            }
+            
+            canvas.width = width;
+            canvas.height = height;
+            
+            // Use high quality image smoothing for downscaling
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            
+            // Draw resized image
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            // Export as JPEG for smaller file size (photos compress well)
+            const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+            
+            resolve(compressedDataUrl);
+        };
+        
+        img.onerror = () => reject(new Error('Failed to load image for compression'));
+        img.src = imageDataUrl;
+    });
+}
+

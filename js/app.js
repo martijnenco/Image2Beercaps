@@ -1,7 +1,7 @@
 // Main application logic
 
 import { getBeercaps, saveBeercaps, addBeercap, updateBeercap, deleteBeercap, generateId, getTotalBeercapCount } from './storage.js';
-import { extractAverageColor, rgbToHex, getContrastColor, colorDistance } from './colorUtils.js';
+import { extractAverageColor, rgbToHex, getContrastColor, colorDistance, resizeAndCompressImage } from './colorUtils.js';
 import { calculateGridDimensions, generateMosaic, generateMosaicOptimized, createBeercapCodes, gridToCSV, generateLegend, HEX_VERTICAL_FACTOR } from './gridGenerator.js';
 import { initWasm, isWasmReady, isThreaded, getThreadCount } from './wasmLoader.js';
 import { startCamera, stopCamera, scanImage, drawDetectionOverlay } from './scanner.js';
@@ -372,7 +372,10 @@ async function handleBeercapSubmit(e) {
     
     try {
         // Read image as data URL
-        const imageData = await readFileAsDataURL(imageFile);
+        const originalImageData = await readFileAsDataURL(imageFile);
+        
+        // Resize and compress image to max 64x64 for efficient storage
+        const imageData = await resizeAndCompressImage(originalImageData);
         
         // Extract average color
         const color = await extractAverageColor(imageData);

@@ -605,7 +605,7 @@ export async function scanImage(imageSource, options = {}, progressCallback = nu
             id: idx,
             count: cluster.members.length,
             color: cluster.color,
-            imageDataUrl: cluster.representative.image.toDataURL('image/png'),
+            imageDataUrl: cluster.representative.image.toDataURL('image/jpeg', 0.85),
             members: cluster.members.map(m => m.id)
         }))
     };
