@@ -4,7 +4,7 @@ User-agent: *
 Allow: /
 
 # Sitemap
-Sitemap: https://beercap-mosaic.example.com/sitemap.xml
+Sitemap: https://beercap-mosaic.com/sitemap.xml
 
 # Disallow build artifacts
 Disallow: /wasm/src/
