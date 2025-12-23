@@ -41,7 +41,6 @@ A list of potential features and improvements for future development.
 - [ ] **Manual selection** — Draw circles around caps the auto-detect missed
 - [ ] **Adjustable threshold** — Slider to tune detection sensitivity
 - [ ] **Scan multiple photos** — Combine caps from several photos into one session
-- [ ] **Better ML detection** — Use TensorFlow.js model for more accurate cap detection
 
 ---
 
@@ -53,17 +52,6 @@ A list of potential features and improvements for future development.
 - [ ] **Dark/Light theme toggle** — Some users prefer light mode
 - [ ] **Keyboard shortcuts** — Power user features (Delete, +/-, navigation)
 - [ ] **Mobile-optimized UI** — Better touch support for phones and tablets
-- [ ] **Tutorial/onboarding** — First-time user guide with tooltips
-
----
-
-## 🚀 Advanced Features
-
-- [ ] **3D preview** — Show mosaic with shadows/depth effect
-- [ ] **Multiple target comparison** — Try different images with same inventory
-- [ ] **Region locking** — Lock certain grid cells to specific caps
-- [ ] **Color zones** — Define regions that should use specific cap types
-- [ ] **Symmetry mode** — Mirror patterns for symmetric designs
 
 ---
 
