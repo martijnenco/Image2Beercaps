@@ -95,6 +95,10 @@
         <header class="app-header">
             <h1 class="app-title">Beercap Mosaic</h1>
             <p class="app-subtitle">Transform images into beercap art instructions</p>
+            <button id="how-it-works-btn" class="how-it-works-btn">
+                <span class="how-btn-icon">?</span>
+                How It Works
+            </button>
         </header>
 
         <!-- Main Content Grid -->
@@ -102,7 +106,18 @@
             <!-- Beercap Library Panel -->
             <section class="panel">
                 <div class="panel-header">
-                    <h2 class="panel-title">Beercap Library</h2>
+                    <h2 class="panel-title">
+                        Beercap Library
+                        <button class="help-icon" data-popover="library-help" aria-label="Help">?</button>
+                    </h2>
+                    <div class="popover" id="library-help">
+                        <div class="popover-content">
+                            <h4>📦 Building Your Library</h4>
+                            <p><strong>Add manually:</strong> Upload individual beercap photos. Colors are auto-extracted from the center.</p>
+                            <p><strong>Scan multiple:</strong> Photograph many caps at once on a contrasting surface. The scanner auto-detects and groups duplicates.</p>
+                            <p class="popover-tip">💡 More color variety = better mosaics!</p>
+                        </div>
+                    </div>
                     <div class="library-actions">
                         <span class="stats-badge">
                             Total: <strong id="total-caps">0</strong> caps
@@ -125,7 +140,18 @@
             <!-- Target Image Panel -->
             <section class="panel">
                 <div class="panel-header">
-                    <h2 class="panel-title">Target Image</h2>
+                    <h2 class="panel-title">
+                        Target Image
+                        <button class="help-icon" data-popover="target-help" aria-label="Help">?</button>
+                    </h2>
+                    <div class="popover" id="target-help">
+                        <div class="popover-content">
+                            <h4>🖼️ Choose Your Image</h4>
+                            <p>Upload the image you want to recreate as a beercap mosaic.</p>
+                            <p>The app calculates the optimal grid size based on your available caps and the image's aspect ratio.</p>
+                            <p class="popover-tip">💡 ~500 caps creates recognizable images. High contrast images work best!</p>
+                        </div>
+                    </div>
                 </div>
                 <div class="panel-content">
                     <div id="target-upload-area" class="upload-area">
@@ -150,12 +176,38 @@
                             <input type="radio" id="layout-hex" name="layout" value="hex" checked>
                             <label for="layout-hex" class="toggle-option">Hexagonal</label>
                         </div>
+                        <button class="help-icon" data-popover="layout-help" aria-label="Help">?</button>
+                        <div class="popover" id="layout-help">
+                            <div class="popover-content">
+                                <h4>📐 Grid Layouts</h4>
+                                <p><strong>Square:</strong> Traditional grid pattern, easier to build.</p>
+                                <p><strong>Hexagonal:</strong> Offset rows create a more natural, tightly-packed honeycomb look.</p>
+                            </div>
+                        </div>
                     </div>
                     
                     <div class="generate-section">
-                        <button id="generate-btn" class="btn btn-primary btn-generate" disabled>
-                            Generate Mosaic
-                        </button>
+                        <div class="generate-row">
+                            <button id="generate-btn" class="btn btn-primary btn-generate" disabled>
+                                Generate Mosaic
+                            </button>
+                            <button class="help-icon help-icon-lg" data-popover="algo-help" aria-label="Algorithm help">?</button>
+                            <div class="popover popover-above-wide" id="algo-help">
+                                <div class="popover-content">
+                                    <h4>🧠 The Algorithm</h4>
+                                    <p>Uses the <strong>Hungarian Algorithm</strong> for global optimization — not just picking the best cap for each spot, but finding the best overall arrangement.</p>
+                                    <p>This means a cell might get a slightly worse match so that another cell can get a much better one, improving total quality.</p>
+                                    
+                                    <h4 class="popover-section-title">⚡ Performance Status</h4>
+                                    <p>The green bar below shows your engine status:</p>
+                                    <ul class="popover-list">
+                                        <li><strong>🚀 WASM X threads</strong> — Fastest! Multi-threaded WebAssembly using all your CPU cores.</li>
+                                        <li><strong>⚡ WASM (single-threaded)</strong> — Fast. WASM but without multi-threading.</li>
+                                        <li><strong>🐢 JavaScript Fallback</strong> — Slowest. WASM failed to load.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
                         <div id="wasm-status" class="wasm-status loading">
                             <span class="wasm-icon">⏳</span>
                             <span class="wasm-text">Loading WASM...</span>
@@ -335,6 +387,152 @@
             <div class="modal-footer">
                 <button id="scan-reset-btn" class="btn btn-secondary">Reset</button>
                 <button id="scan-add-btn" class="btn btn-primary" disabled>Add All to Library</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- How It Works Modal -->
+    <div id="how-modal" class="modal how-modal">
+        <div class="modal-content how-modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">How It Works</h3>
+                <button id="how-modal-close" class="modal-close">&times;</button>
+            </div>
+            
+            <div class="how-body">
+                <!-- Process Overview -->
+                <div class="how-section">
+                    <div class="process-flow">
+                        <div class="process-step">
+                            <div class="process-icon">🍺</div>
+                            <div class="process-label">Your Beercaps</div>
+                        </div>
+                        <div class="process-arrow">→</div>
+                        <div class="process-step">
+                            <div class="process-icon">🖼️</div>
+                            <div class="process-label">Target Image</div>
+                        </div>
+                        <div class="process-arrow">→</div>
+                        <div class="process-step">
+                            <div class="process-icon">🎨</div>
+                            <div class="process-label">Mosaic Grid</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 1 -->
+                <div class="how-section">
+                    <h4 class="how-step-title">
+                        <span class="step-number">1</span>
+                        Build Your Beercap Library
+                    </h4>
+                    <div class="how-step-content">
+                        <div class="how-option">
+                            <strong>Option A: Add Manually</strong>
+                            <p>Upload photos of each unique beercap. The app automatically extracts the dominant color using center-weighted sampling. Set the quantity you have available for each type.</p>
+                        </div>
+                        <div class="how-option">
+                            <strong>Option B: Scan Multiple Caps</strong>
+                            <p>Use the <strong>📷 Scan</strong> feature to photograph many beercaps spread on a table. The scanner uses:</p>
+                            <ul>
+                                <li>Circle detection to find individual caps</li>
+                                <li>Color histogram matching to identify duplicates</li>
+                                <li>Automatic clustering to group identical caps and count quantities</li>
+                            </ul>
+                        </div>
+                        <div class="how-tips">
+                            <h5>📸 Tips for best scanning results:</h5>
+                            <ul>
+                                <li>Use a contrasting background (dark caps on light surface, or vice versa)</li>
+                                <li>Spread caps evenly with some space between them</li>
+                                <li>Use good, even lighting to avoid shadows</li>
+                                <li>Keep caps flat (not overlapping)</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 2 -->
+                <div class="how-section">
+                    <h4 class="how-step-title">
+                        <span class="step-number">2</span>
+                        Upload Target Image
+                    </h4>
+                    <div class="how-step-content">
+                        <p>Choose the image you want to recreate as a beercap mosaic. The app calculates the optimal grid size based on your total available caps and the image's aspect ratio.</p>
+                    </div>
+                </div>
+
+                <!-- Step 3 -->
+                <div class="how-section">
+                    <h4 class="how-step-title">
+                        <span class="step-number">3</span>
+                        Generate Mosaic
+                    </h4>
+                    <div class="how-step-content">
+                        <p>The app uses the <strong>Hungarian Algorithm</strong> (compiled to WebAssembly with multi-threading) to find the globally optimal assignment of beercaps to grid positions.</p>
+                        <div class="algo-explainer">
+                            <div class="algo-box">
+                                <div class="algo-title">Cost Matrix</div>
+                                <div class="algo-desc">For each grid cell × each beercap, calculate color distance</div>
+                            </div>
+                            <div class="algo-arrow">↓</div>
+                            <div class="algo-box highlight">
+                                <div class="algo-title">Hungarian Algorithm</div>
+                                <div class="algo-desc">O(n³) optimization • Multi-threaded Rust/WASM</div>
+                            </div>
+                            <div class="algo-arrow">↓</div>
+                            <div class="algo-box">
+                                <div class="algo-title">Optimal Assignment</div>
+                                <div class="algo-desc">Minimizes total color error across entire mosaic</div>
+                            </div>
+                        </div>
+                        <p class="algo-note">Unlike greedy approaches that pick the best available cap for each position (leading to poor matches at the end), global optimization means a cell might get a slightly worse match so another can get a much better one — improving overall quality.</p>
+                    </div>
+                </div>
+
+                <!-- Step 4 -->
+                <div class="how-section">
+                    <h4 class="how-step-title">
+                        <span class="step-number">4</span>
+                        Build Your Art
+                    </h4>
+                    <div class="how-step-content">
+                        <p>Use the reference grid with letter codes (A, B, C...) to know exactly which beercap goes where. Export as PNG for visual reference or CSV for a spreadsheet view.</p>
+                    </div>
+                </div>
+
+                <!-- Usage Tips -->
+                <div class="how-section">
+                    <h4 class="how-step-title">
+                        <span class="step-number">💡</span>
+                        Best Practices
+                    </h4>
+                    <div class="how-step-content">
+                        <div class="tips-grid">
+                            <div class="tip-card">
+                                <span class="tip-icon">📷</span>
+                                <strong>Photo Quality</strong>
+                                <p>Take beercap photos on a neutral background with good lighting. Crop tightly to show mainly the cap.</p>
+                            </div>
+                            <div class="tip-card">
+                                <span class="tip-icon">🔢</span>
+                                <strong>Quantity Accuracy</strong>
+                                <p>Enter accurate quantities — the algorithm respects your inventory limits.</p>
+                            </div>
+                            <div class="tip-card">
+                                <span class="tip-icon">📊</span>
+                                <strong>Grid Size</strong>
+                                <p>More caps = higher resolution. ~500 caps works well for recognizable images.</p>
+                            </div>
+                            <div class="tip-card">
+                                <span class="tip-icon">🎨</span>
+                                <strong>Color Variety</strong>
+                                <p>A diverse color palette gives better results than many caps of similar colors.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

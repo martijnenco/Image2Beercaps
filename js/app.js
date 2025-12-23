@@ -1194,3 +1194,84 @@ async function addScannedCapsToLibrary() {
     alert(message);
 }
 
+// ============================================
+// HELP POPOVERS & HOW IT WORKS MODAL
+// ============================================
+
+function setupHelpPopovers() {
+    // Get all help icons
+    const helpIcons = document.querySelectorAll('.help-icon[data-popover]');
+    
+    helpIcons.forEach(icon => {
+        const popoverId = icon.getAttribute('data-popover');
+        const popover = document.getElementById(popoverId);
+        if (!popover) return;
+        
+        // Toggle on click
+        icon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            
+            // Close any other open popovers
+            document.querySelectorAll('.popover.active').forEach(p => {
+                if (p !== popover) p.classList.remove('active');
+            });
+            
+            popover.classList.toggle('active');
+        });
+    });
+    
+    // Close popovers when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.help-icon') && !e.target.closest('.popover')) {
+            document.querySelectorAll('.popover.active').forEach(p => {
+                p.classList.remove('active');
+            });
+        }
+    });
+    
+    // Close on Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.popover.active').forEach(p => {
+                p.classList.remove('active');
+            });
+        }
+    });
+}
+
+function setupHowItWorksModal() {
+    const btn = document.getElementById('how-it-works-btn');
+    const modal = document.getElementById('how-modal');
+    const closeBtn = document.getElementById('how-modal-close');
+    
+    if (!btn || !modal) return;
+    
+    btn.addEventListener('click', () => {
+        modal.classList.add('active');
+    });
+    
+    closeBtn.addEventListener('click', () => {
+        modal.classList.remove('active');
+    });
+    
+    // Close on backdrop click
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.classList.remove('active');
+        }
+    });
+    
+    // Close on Escape
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('active')) {
+            modal.classList.remove('active');
+        }
+    });
+}
+
+// Initialize help system
+document.addEventListener('DOMContentLoaded', () => {
+    setupHelpPopovers();
+    setupHowItWorksModal();
+});
+
